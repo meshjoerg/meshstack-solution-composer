@@ -1,4 +1,4 @@
-export type InputSourceType = 'user' | 'platform-operator' | 'static' | 'meshstack-context' | 'bb-output';
+export type InputSourceType = 'unassigned' | 'user' | 'platform-operator' | 'static' | 'meshstack-context' | 'bb-output';
 export type BuildingBlockSourceType = 'hub' | 'marketplace' | 'custom';
 export type ImplementationType = 'opentofu' | 'github-actions' | 'gitlab-cicd' | 'manual' | 'azure-devops';
 
