@@ -1,0 +1,120 @@
+<header class="topbar">
+  <div><strong>meshStack</strong> <span>Solution Composer</span></div>
+  <div class="status">{{ saved ? 'Saved locally' : 'Saving…' }}</div>
+</header>
+
+<main class="workspace">
+  <aside class="catalog panel">
+    <div class="panel-title">BUILDING BLOCKS <span>meshStack Hub</span></div>
+    <input class="search" [(ngModel)]="query" placeholder="Search capabilities…">
+    <div class="catalog-list">
+      <article class="catalog-item" *ngFor="let item of filteredCatalog">
+        <div>
+          <strong>{{ item.name }}</strong>
+          <p>{{ item.description }}</p>
+          <small>{{ item.inputs.length }} inputs · {{ item.outputs.length }} outputs</small>
+        </div>
+        <button (click)="add(item)">+</button>
+      </article>
+    </div>
+    <button class="secondary wide" disabled>+ New Building Block · later</button>
+  </aside>
+
+  <section class="composer">
+    <section class="metadata panel">
+      <div class="panel-title">SOLUTION BLUEPRINT <span>Aggregated Building Block</span></div>
+      <div class="metadata-grid">
+        <label>Name<input [(ngModel)]="blueprint.name" (ngModelChange)="changed()"></label>
+        <label>Identifier<input [(ngModel)]="blueprint.identifier" (ngModelChange)="changed()"></label>
+        <label class="wide-field">Description<input [(ngModel)]="blueprint.description" (ngModelChange)="changed()"></label>
+        <label>Working repository<input [(ngModel)]="blueprint.workingRepo" (ngModelChange)="changed()"></label>
+        <label>Repository path<input [(ngModel)]="blueprint.repoPath" (ngModelChange)="changed()"></label>
+      </div>
+    </section>
+
+    <section class="contexts">
+      <article class="context user">
+        <h3>USER CONTEXT <span>↓</span></h3>
+        <p *ngIf="!userContext.length" class="empty">No user inputs yet</p>
+        <code *ngFor="let item of userContext">{{ item }}</code>
+      </article>
+      <article class="context static">
+        <h3>STATIC CONTEXT <span>↓</span></h3>
+        <p *ngIf="!staticContext.length" class="empty">No fixed values yet</p>
+        <code *ngFor="let item of staticContext">{{ item }}</code>
+      </article>
+      <article class="context meshstack">
+        <h3>meshSTACK CONTEXT <span>↓</span></h3>
+        <p *ngIf="!meshStackContext.length" class="empty">No context bindings yet</p>
+        <code *ngFor="let item of meshStackContext">{{ item }}</code>
+      </article>
+    </section>
+
+    <section class="composition panel">
+      <div class="panel-title">COMPOSITION <span>parameters flow from context through capabilities</span></div>
+      <div class="empty-composition" *ngIf="!blueprint.blocks.length">
+        Add Building Blocks from the catalog to start composing a solution.
+      </div>
+
+      <article class="bb" *ngFor="let block of blueprint.blocks | keyvalue : null; let i = index">
+      </article>
+      <article class="bb" *ngFor="let block of blueprint.blocks">
+        <div class="bb-head">
+          <div>
+            <button class="chevron" (click)="block.expanded = !block.expanded; changed()">{{ block.expanded ? '▾' : '▸' }}</button>
+            <strong>{{ definition(block).name }}</strong>
+            <small>{{ definition(block).source }}</small>
+          </div>
+          <div class="bb-actions">
+            <button (click)="move(block,-1)">↑</button><button (click)="move(block,1)">↓</button><button (click)="remove(block)">×</button>
+          </div>
+        </div>
+
+        <div class="io-summary">
+          <span></span><span class="inputs-count">↑ {{ definition(block).inputs.length }} INPUTS</span>
+        </div>
+
+        <div class="bb-body" *ngIf="block.expanded">
+          <div class="spacer"></div>
+          <div class="io-list inputs">
+            <div class="parameter" *ngFor="let input of definition(block).inputs">
+              <div class="parameter-name">{{ input.name }} <small>{{ input.type }}</small></div>
+              <select [ngModel]="block.inputs[input.name]?.source" (ngModelChange)="setSource(block,input.name,$event)">
+                <option value="user">User input</option>
+                <option value="static">Static value</option>
+                <option value="meshstack-context">meshStack context</option>
+                <option value="bb-output">Building Block output</option>
+              </select>
+              <input *ngIf="block.inputs[input.name]?.source === 'user'" [(ngModel)]="block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="parameter name">
+              <input *ngIf="block.inputs[input.name]?.source === 'static'" [(ngModel)]="block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="value">
+              <select *ngIf="block.inputs[input.name]?.source === 'meshstack-context'" [(ngModel)]="block.inputs[input.name].contextKey" (ngModelChange)="changed()">
+                <option value="project_identifier">Project Identifier</option>
+                <option value="workspace_identifier">Workspace Identifier</option>
+                <option value="platform_identifier">Platform Identifier</option>
+                <option value="tenant_id">Tenant ID</option>
+                <option value="tags">Tags</option>
+                <option value="user_permissions">User Permissions</option>
+              </select>
+              <select *ngIf="block.inputs[input.name]?.source === 'bb-output'" [ngModel]="(block.inputs[input.name].sourceBlockId || '') + '|' + (block.inputs[input.name].sourceOutput || '')" (ngModelChange)="setOutputReference(block,input.name,$event)">
+                <option *ngFor="let candidate of outputCandidates(block)" [value]="candidate.block.instanceId + '|' + candidate.output">{{ candidate.label }} → {{ candidate.output }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="outputs" *ngIf="block.expanded">
+          <div></div>
+          <div class="io-list">
+            <div class="output" *ngFor="let output of definition(block).outputs"><span>↓</span> {{ output.name }} <small>{{ output.type }}</small></div>
+          </div>
+        </div>
+        <div class="io-summary bottom"><span></span><span>↓ {{ definition(block).outputs.length }} OUTPUTS</span></div>
+      </article>
+    </section>
+
+    <section class="code panel">
+      <div class="panel-title">GENERATED TERRAFORM / OPENTOFU <span>live from blueprint state</span></div>
+      <pre><code>{{ terraform }}</code></pre>
+    </section>
+  </section>
+</main>
