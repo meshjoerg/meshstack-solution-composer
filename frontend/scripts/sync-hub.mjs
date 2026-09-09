@@ -146,6 +146,7 @@ function descriptionFromReadme(readme) {
     if (/^(?:---+|___+|\*\*\*+)$/.test(line)) continue;
     if (/^\|.*\|$/.test(line)) continue;
     if (/^[A-Za-z0-9_.-]+\s*:\s*.*$/.test(line)) continue;
+    if (/^[-*+]\s+[A-Za-z0-9_.-]+\s*$/.test(line)) continue;
     const cleaned = line.replace(/^>\s*/, '').trim();
     if (!cleaned || cleaned === '---') continue;
     return cleaned.slice(0, 240);
@@ -153,10 +154,27 @@ function descriptionFromReadme(readme) {
   return '';
 }
 
-function findLogo(buildingBlockDir, moduleDir) {
-  const files = [...walk(buildingBlockDir), ...walk(moduleDir)]
+function findLogo(buildingBlockRoot, moduleDir) {
+  const files = [...walk(buildingBlockRoot), ...walk(moduleDir)]
     .filter(path => /(?:logo|icon)\.(?:png|svg|jpg|jpeg|webp)$/i.test(basename(path)));
   return files[0];
+}
+
+function resolveModuleEntry(variableFile, modulesDir) {
+  const relativeFile = relative(modulesDir, variableFile);
+  const parts = relativeFile.split(sep);
+  const buildingBlockIndex = parts.map(part => part.toLowerCase()).lastIndexOf('buildingblock');
+  if (buildingBlockIndex <= 0) return undefined;
+
+  const moduleParts = parts.slice(0, buildingBlockIndex);
+  const buildingBlockParts = parts.slice(0, buildingBlockIndex + 1);
+  return {
+    variableFile,
+    implementationDir: dirname(variableFile),
+    moduleDir: join(modulesDir, ...moduleParts),
+    buildingBlockRoot: join(modulesDir, ...buildingBlockParts),
+    moduleParts
+  };
 }
 
 function generateCatalog() {
@@ -164,28 +182,45 @@ function generateCatalog() {
   if (!existsSync(modulesDir)) throw new Error('meshstack-hub modules directory not found');
 
   const allFiles = walk(modulesDir);
-  const buildingBlockDirs = [...new Set(
-    allFiles
-      .filter(path => basename(path) === 'variables.tf' && dirname(path).split(sep).includes('buildingblock'))
-      .map(path => dirname(path))
-  )];
+  const entriesByModule = new Map();
 
-  const items = buildingBlockDirs.map(buildingBlockDir => {
-    const moduleDir = dirname(buildingBlockDir);
+  for (const variableFile of allFiles.filter(path => basename(path) === 'variables.tf')) {
+    const entry = resolveModuleEntry(variableFile, modulesDir);
+    if (!entry) continue;
+    const key = entry.moduleDir;
+    const existing = entriesByModule.get(key);
+    if (!existing) {
+      entriesByModule.set(key, entry);
+      continue;
+    }
+
+    // Prefer the variables.tf closest to the buildingblock root when a module
+    // contains multiple implementation subdirectories.
+    const existingDepth = relative(existing.buildingBlockRoot, existing.variableFile).split(sep).length;
+    const candidateDepth = relative(entry.buildingBlockRoot, entry.variableFile).split(sep).length;
+    if (candidateDepth < existingDepth) entriesByModule.set(key, entry);
+  }
+
+  const items = [...entriesByModule.values()].map(entry => {
+    const { variableFile, implementationDir, moduleDir, buildingBlockRoot, moduleParts } = entry;
     const relModule = relative(repoDir, moduleDir).split(sep).join('/');
-    const relBuildingBlock = relative(repoDir, buildingBlockDir).split(sep).join('/');
-    const parts = relModule.split('/');
-    const platform = parts[1] ? titleCase(parts[1]) : 'meshStack Hub';
+    const relImplementation = relative(repoDir, implementationDir).split(sep).join('/');
+    const platform = moduleParts[0] ? titleCase(moduleParts[0]) : 'meshStack Hub';
     const moduleName = basename(moduleDir);
-    const id = parts.slice(1).join('-').replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+    const id = moduleParts.join('-').replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
 
-    const variables = readFirstExisting([join(buildingBlockDir, 'variables.tf')]);
-    const outputs = readFirstExisting([join(buildingBlockDir, 'outputs.tf')]);
+    const variables = readFileSync(variableFile, 'utf8');
+    const outputs = readFirstExisting([
+      join(implementationDir, 'outputs.tf'),
+      join(buildingBlockRoot, 'outputs.tf')
+    ]);
     const readme = readFirstExisting([
       join(moduleDir, 'README.md'),
-      join(buildingBlockDir, 'README.md'),
       join(moduleDir, 'readme.md'),
-      join(buildingBlockDir, 'readme.md')
+      join(buildingBlockRoot, 'README.md'),
+      join(buildingBlockRoot, 'readme.md'),
+      join(implementationDir, 'README.md'),
+      join(implementationDir, 'readme.md')
     ]);
 
     const inputs = parseTerraformBlocks(variables, 'variable').map(({ name, body }) => ({
@@ -201,7 +236,7 @@ function generateCatalog() {
 
     const name = titleFromReadme(readme, moduleName);
     const description = descriptionFromReadme(readme) || `${platform} Building Block from the meshStack Hub.`;
-    const logo = findLogo(buildingBlockDir, moduleDir);
+    const logo = findLogo(buildingBlockRoot, moduleDir);
     const logoUrl = logo ? `${rawBase}/${relative(repoDir, logo).split(sep).join('/')}` : undefined;
 
     return {
@@ -211,7 +246,7 @@ function generateCatalog() {
       icon: '◈',
       ...(logoUrl ? { logoUrl } : {}),
       platform,
-      codeUrl: `${githubBase}/${relBuildingBlock}`,
+      codeUrl: `${githubBase}/${relImplementation}`,
       source: { type: 'hub', label: 'meshStack Hub', icon: '◆' },
       implementation: { type: 'opentofu', label: 'OpenTofu', icon: '⬡' },
       inputs,
