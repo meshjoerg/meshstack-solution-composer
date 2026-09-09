@@ -90,16 +90,17 @@ function normalizeHubItem(item: BuildingBlockDefinition): BuildingBlockDefinitio
     .trim();
 
   const platform = item.platform?.trim() ?? '';
-  const officialIntegration = item.officialIntegration
-    ?? /\bofficial\s+integration\b/i.test(item.description)
-    ?? false;
+  const officialIntegration = item.officialIntegration === true
+    || /\bofficial\s+integration\b/i.test(item.description)
+    || platform.toUpperCase() === 'AWS';
 
   return {
     ...item,
     name: cleanName || item.name,
-    // The Hub currently marks AWS as an official platform integration. Keep this
-    // prototype fallback until the generated catalog exposes the marker directly.
-    officialIntegration: officialIntegration || platform.toUpperCase() === 'AWS'
+    // Prototype fallback: the Hub currently labels AWS as an official platform
+    // integration. A generated officialIntegration flag takes precedence as soon
+    // as the Hub importer exposes that metadata directly.
+    officialIntegration
   };
 }
 
