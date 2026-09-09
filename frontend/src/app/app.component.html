@@ -19,8 +19,8 @@
               <ng-template #catalogManualIcon><span>⚙</span></ng-template>
             </div>
             <div class="catalog-io">
-              <div><span class="io-label">IN</span><span class="mini-name" *ngFor="let input of item.inputs">{{ input.name }}</span></div>
-              <div><span class="io-label">OUT</span><span class="mini-name" *ngFor="let output of item.outputs">{{ output.name }}</span></div>
+              <div class="io-grid-row"><span class="io-label">IN</span><div class="io-values"><span class="mini-name" *ngFor="let input of item.inputs">{{ input.name }}</span></div></div>
+              <div class="io-grid-row"><span class="io-label">OUT</span><div class="io-values"><span class="mini-name" *ngFor="let output of item.outputs">{{ output.name }}</span></div></div>
             </div>
           </div>
           <div class="source-strip">{{ item.source.label }}</div>
@@ -49,17 +49,26 @@
         <div class="context-defaults">
           <span *ngFor="let item of meshStackDefaults">{{ item }}</span>
         </div>
-        <code *ngFor="let item of meshStackBindings">{{ item }}</code>
+        <div class="context-group" *ngFor="let group of meshStackBindingGroups">
+          <div class="context-group-title">{{ group.blockName }}</div>
+          <code *ngFor="let item of group.items">{{ item }}</code>
+        </div>
       </article>
       <article class="context static">
         <h3>STATIC CONTEXT <span>↓</span></h3>
-        <p *ngIf="!staticContext.length" class="empty">Fixed by the solution blueprint</p>
-        <code *ngFor="let item of staticContext">{{ item }}</code>
+        <p *ngIf="!staticGroups.length" class="empty">Fixed by the solution blueprint</p>
+        <div class="context-group" *ngFor="let group of staticGroups">
+          <div class="context-group-title">{{ group.blockName }}</div>
+          <code *ngFor="let item of group.items">{{ item }}</code>
+        </div>
       </article>
       <article class="context user">
         <h3>USER / OPERATOR CONTEXT <span>↓</span></h3>
-        <p *ngIf="!userAndOperatorContext.length" class="empty">Provided when the solution is requested or operated</p>
-        <code *ngFor="let item of userAndOperatorContext">{{ item }}</code>
+        <p *ngIf="!userOperatorGroups.length" class="empty">Provided when the solution is requested or operated</p>
+        <div class="context-group" *ngFor="let group of userOperatorGroups">
+          <div class="context-group-title">{{ group.blockName }}</div>
+          <code *ngFor="let item of group.items">{{ item }}</code>
+        </div>
       </article>
     </section>
 
@@ -94,13 +103,13 @@
                   <ng-template #manualIcon><span>⚙</span></ng-template>
                 </div>
                 <div class="io-stack">
-                  <div class="io-row">
+                  <div class="io-grid-row">
                     <span class="io-label">INPUTS</span>
-                    <span class="parameter-chip" *ngFor="let input of definition(block).inputs">{{ input.name }}</span>
+                    <div class="io-values"><span class="parameter-chip" *ngFor="let input of definition(block).inputs">{{ input.name }}</span></div>
                   </div>
-                  <div class="io-row output-row-compact">
+                  <div class="io-grid-row output-row-compact">
                     <span class="io-label">OUTPUTS</span>
-                    <span class="parameter-chip" *ngFor="let output of definition(block).outputs">{{ output.name }}</span>
+                    <div class="io-values"><span class="parameter-chip" *ngFor="let output of definition(block).outputs">{{ output.name }}</span></div>
                   </div>
                 </div>
               </div>
