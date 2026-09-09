@@ -15,7 +15,7 @@
           <small>{{ group.items.length }}</small>
         </summary>
 
-        <article class="catalog-item catalog-bb" *ngFor="let item of group.items">
+        <article class="catalog-item" *ngFor="let item of group.items">
           <div class="catalog-icon">
             <img *ngIf="item.logoUrl; else catalogFallbackIcon" [src]="item.logoUrl" [alt]="item.name">
             <ng-template #catalogFallbackIcon><span>{{ item.icon }}</span></ng-template>
@@ -64,11 +64,7 @@
 
       <div class="dag-scroll" *ngIf="orderedBlocks.length">
         <div class="lane-grid" [style.--column-count]="maxCompositionColumn + 1">
-          <article
-            class="bb compact lane-card"
-            *ngFor="let placement of compositionPlacements"
-            [style.grid-column]="placement.column + 1"
-            [style.grid-row]="placement.row + 1">
+          <article class="bb compact lane-card" *ngFor="let placement of compositionPlacements" [style.grid-column]="placement.column + 1" [style.grid-row]="placement.row + 1">
             <div class="lane-arrow" *ngIf="placement.column > 0">→</div>
             <div class="source-strip card-source">{{ definition(placement.block).source.label }}</div>
 
@@ -82,7 +78,7 @@
                 <p>{{ definition(placement.block).description }}</p>
               </div>
               <div class="bb-actions">
-                <button (click)="toggleExpanded(placement.block)" [attr.aria-label]="placement.block.expanded ? 'Collapse building block' : 'Expand building block'">{{ placement.block.expanded ? '▴' : '▾' }}</button>
+                <button (click)="toggleExpanded(placement.block)">{{ placement.block.expanded ? '▴' : '▾' }}</button>
                 <button (click)="remove(placement.block)">×</button>
               </div>
             </div>
@@ -97,7 +93,7 @@
                 <div class="io-grid-row">
                   <span class="io-label">INPUTS</span>
                   <div class="io-values">
-                    <button class="parameter-chip parameter-button" *ngFor="let input of definition(placement.block).inputs" (click)="editInput(placement.block,input.name)">{{ input.name }}</button>
+                    <button class="parameter-chip parameter-chip-button" *ngFor="let input of definition(placement.block).inputs" (click)="editInput(placement.block,input.name)">{{ input.name }}</button>
                   </div>
                 </div>
                 <div class="io-grid-row output-row-compact">
@@ -113,7 +109,7 @@
             </div>
 
             <div class="bb-details compact-details" *ngIf="placement.block.expanded">
-              <div class="section-caption">INPUT BINDINGS</div>
+              <div class="section-caption">INPUT BINDING</div>
               <div class="parameter" *ngFor="let input of visibleInputs(placement.block)">
                 <div class="parameter-info">
                   <div class="parameter-name">{{ input.name }} <small>{{ input.type }}</small></div>
@@ -154,27 +150,19 @@
     <section class="contexts">
       <article class="context meshstack">
         <h3>meshSTACK CONTEXT <span>↓</span></h3>
-        <div class="context-defaults">
-          <span *ngFor="let item of meshStackDefaults">{{ item }}</span>
-        </div>
+        <div class="context-defaults"><span *ngFor="let item of meshStackDefaults">{{ item }}</span></div>
       </article>
-
       <article class="context static">
         <h3>STATIC CONTEXT <span>↓</span></h3>
         <div class="context-pills" *ngIf="staticGroups.length; else noStatic">
-          <ng-container *ngFor="let group of staticGroups">
-            <span class="context-pill" *ngFor="let item of group.items"><b>{{ group.blockName }}</b><i>·</i>{{ item }}</span>
-          </ng-container>
+          <ng-container *ngFor="let group of staticGroups"><span class="context-pill" *ngFor="let item of group.items"><b>{{ group.blockName }}</b><i>·</i>{{ item }}</span></ng-container>
         </div>
         <ng-template #noStatic><p class="empty">Fixed by the solution blueprint</p></ng-template>
       </article>
-
       <article class="context user">
         <h3>USER / OPERATOR CONTEXT <span>↓</span></h3>
         <div class="context-pills" *ngIf="userOperatorPills.length; else noUserOperator">
-          <span class="context-pill" *ngFor="let item of userOperatorPills" [title]="item.operator ? 'Platform operator input' : 'User input'">
-            <b>{{ item.blockName }}</b><i>·</i>{{ item.parameter }}<em *ngIf="item.operator">operator</em>
-          </span>
+          <span class="context-pill" *ngFor="let item of userOperatorPills"><b>{{ item.blockName }}</b><i>·</i>{{ item.parameter }}<em *ngIf="item.operator">operator</em></span>
         </div>
         <ng-template #noUserOperator><p class="empty">Provided when the solution is requested or operated</p></ng-template>
       </article>
