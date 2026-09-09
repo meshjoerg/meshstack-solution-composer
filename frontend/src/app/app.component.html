@@ -22,16 +22,20 @@
             <strong>{{ item.name }}</strong>
             <p>{{ item.description }}</p>
 
-            <details class="catalog-details" #catalogDetail>
+            <details class="catalog-details">
               <summary class="catalog-details-summary">
-                <span class="catalog-toggle-chevron" aria-hidden="true">{{ catalogDetail.open ? '⌃' : '⌄' }}</span>
+                <span class="catalog-toggle-chevron" aria-hidden="true"><span class="chevron-icon"></span></span>
                 <span class="catalog-implementation-summary" [title]="item.implementation.label">
                   <img *ngIf="implementationIconUrl(item.implementation.type) as iconUrl; else catalogSummaryManual" [src]="iconUrl" [alt]="item.implementation.label">
                   <ng-template #catalogSummaryManual><span class="summary-gear">⚙</span></ng-template>
                   <small>{{ item.implementation.label }}</small>
                   <span class="official-mini" *ngIf="item.officialIntegration" title="Official Integration">★</span>
                 </span>
-                <span class="catalog-counts"><b>→ {{ item.inputs.length }}</b> inputs <i>·</i> <b>↓ {{ item.outputs.length }}</b> outputs</span>
+                <span class="catalog-counts">
+                  <span class="catalog-count-unit"><b>→ {{ item.inputs.length }}</b><span>inputs</span></span>
+                  <i>·</i>
+                  <span class="catalog-count-unit"><b>↓ {{ item.outputs.length }}</b><span>outputs</span></span>
+                </span>
               </summary>
 
               <div class="catalog-anatomy">
@@ -49,8 +53,10 @@
                     </div>
                   </div>
                   <div class="io-grid-row">
-                    <span class="io-label io-label-output">↓ OUT</span>
-                    <div class="io-values"><span class="mini-name" *ngFor="let output of item.outputs; trackBy: trackParameter">{{ output.name }}</span></div>
+                    <span class="io-label io-label-output">OUT</span>
+                    <div class="io-values">
+                      <span class="mini-name output-flow-chip" *ngFor="let output of item.outputs; trackBy: trackParameter"><span class="output-chip-arrow">↓</span><span>{{ output.name }}</span></span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -99,7 +105,7 @@
                 <p>{{ definition(placement.block).description }}</p>
               </div>
               <div class="bb-actions">
-                <button class="chevron-button" type="button" title="{{ placement.block.expanded ? 'Fold Building Block' : 'Expand Building Block' }}" (click)="toggleExpanded(placement.block)">{{ placement.block.expanded ? '⌃' : '⌄' }}</button>
+                <button class="chevron-button" type="button" title="{{ placement.block.expanded ? 'Fold Building Block' : 'Expand Building Block' }}" (click)="toggleExpanded(placement.block)"><span class="chevron-icon" [class.open]="placement.block.expanded"></span></button>
                 <button class="remove-button" type="button" title="Remove Building Block" (click)="remove(placement.block)">×</button>
               </div>
             </div>
@@ -128,8 +134,10 @@
                   </div>
 
                   <div class="io-grid-row output-row-compact">
-                    <span class="io-label io-label-output">↓ OUTPUTS</span>
-                    <div class="io-values"><span class="parameter-chip" *ngFor="let output of definition(placement.block).outputs; trackBy: trackParameter">{{ output.name }}</span></div>
+                    <span class="io-label io-label-output">OUTPUTS</span>
+                    <div class="io-values">
+                      <span class="parameter-chip output-flow-chip" *ngFor="let output of definition(placement.block).outputs; trackBy: trackParameter"><span class="output-chip-arrow">↓</span><span>{{ output.name }}</span></span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -138,7 +146,7 @@
 
               <div class="batch-editor-shell">
                 <button class="batch-editor-toggle" type="button" (click)="toggleBatchEditor(placement.block)">
-                  <span>EDIT INPUT PARAMETERS</span><span class="toggle-chevron">{{ isBatchEditorOpen(placement.block) ? '⌃' : '⌄' }}</span>
+                  <span>EDIT INPUT PARAMETERS</span><span class="toggle-chevron"><span class="chevron-icon" [class.open]="isBatchEditorOpen(placement.block)"></span></span>
                 </button>
 
                 <div class="bb-details compact-details" *ngIf="isBatchEditorOpen(placement.block)">
