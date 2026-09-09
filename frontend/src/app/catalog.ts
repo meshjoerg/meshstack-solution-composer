@@ -84,6 +84,27 @@ const DEMO_CATALOG: BuildingBlockDefinition[] = [
   }
 ];
 
+function normalizeHubItem(item: BuildingBlockDefinition): BuildingBlockDefinition {
+  const cleanName = item.name
+    .replace(/\s+Building\s*Block(?:\s+Definition)?s?\s*$/i, '')
+    .trim();
+
+  const platform = item.platform?.trim() ?? '';
+  const officialIntegration = item.officialIntegration
+    ?? /\bofficial\s+integration\b/i.test(item.description)
+    ?? false;
+
+  return {
+    ...item,
+    name: cleanName || item.name,
+    // The Hub currently marks AWS as an official platform integration. Keep this
+    // prototype fallback until the generated catalog exposes the marker directly.
+    officialIntegration: officialIntegration || platform.toUpperCase() === 'AWS'
+  };
+}
+
 // Once sync-hub.mjs generated a real Hub snapshot, it becomes the catalog.
 // The demo catalog remains a fallback so the app also starts offline.
-export const CATALOG: BuildingBlockDefinition[] = HUB_CATALOG.length ? HUB_CATALOG : DEMO_CATALOG;
+export const CATALOG: BuildingBlockDefinition[] = HUB_CATALOG.length
+  ? HUB_CATALOG.map(normalizeHubItem)
+  : DEMO_CATALOG;
