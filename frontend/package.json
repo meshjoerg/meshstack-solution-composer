@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "sync:hub": "node scripts/sync-hub.mjs",
+    "prestart": "node scripts/sync-hub.mjs --best-effort",
     "start": "ng serve",
     "build": "ng build"
   },
