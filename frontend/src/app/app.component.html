@@ -5,16 +5,21 @@
 
 <main class="workspace">
   <aside class="catalog panel">
-    <div class="panel-title">BUILDING BLOCKS <span>meshStack Hub</span></div>
+    <div class="panel-title">BUILDING BLOCKS <span>available capabilities</span></div>
     <input class="search" [(ngModel)]="query" placeholder="Search capabilities…">
     <div class="catalog-list">
       <article class="catalog-item" *ngFor="let item of filteredCatalog">
-        <div>
+        <div class="catalog-icon">{{ item.icon }}</div>
+        <div class="catalog-copy">
           <strong>{{ item.name }}</strong>
           <p>{{ item.description }}</p>
+          <div class="badges">
+            <span class="badge source"><span>{{ item.source.icon }}</span>{{ item.source.label }}</span>
+            <span class="badge implementation"><span>{{ item.implementation.icon }}</span>{{ item.implementation.label }}</span>
+          </div>
           <small>{{ item.inputs.length }} inputs · {{ item.outputs.length }} outputs</small>
         </div>
-        <button (click)="add(item)">+</button>
+        <button class="add" (click)="add(item)">+</button>
       </article>
     </div>
     <button class="secondary wide" disabled>+ New Building Block · later</button>
@@ -33,61 +38,79 @@
     </section>
 
     <section class="contexts">
-      <article class="context user">
-        <h3>USER CONTEXT <span>↓</span></h3>
-        <p *ngIf="!userContext.length" class="empty">No user inputs yet</p>
-        <code *ngFor="let item of userContext">{{ item }}</code>
+      <article class="context meshstack">
+        <h3>meshSTACK CONTEXT <span>↓</span></h3>
+        <div class="context-defaults">
+          <span *ngFor="let item of meshStackDefaults">{{ item }}</span>
+        </div>
+        <code *ngFor="let item of meshStackBindings">{{ item }}</code>
       </article>
       <article class="context static">
         <h3>STATIC CONTEXT <span>↓</span></h3>
-        <p *ngIf="!staticContext.length" class="empty">No fixed values yet</p>
+        <p *ngIf="!staticContext.length" class="empty">Fixed by the solution blueprint</p>
         <code *ngFor="let item of staticContext">{{ item }}</code>
       </article>
-      <article class="context meshstack">
-        <h3>meshSTACK CONTEXT <span>↓</span></h3>
-        <p *ngIf="!meshStackContext.length" class="empty">No context bindings yet</p>
-        <code *ngFor="let item of meshStackContext">{{ item }}</code>
+      <article class="context user">
+        <h3>USER / OPERATOR CONTEXT <span>↓</span></h3>
+        <p *ngIf="!userAndOperatorContext.length" class="empty">Provided when the solution is requested or operated</p>
+        <code *ngFor="let item of userAndOperatorContext">{{ item }}</code>
       </article>
     </section>
 
     <section class="composition panel">
-      <div class="panel-title">COMPOSITION <span>parameters flow from context through capabilities</span></div>
+      <div class="panel-title">COMPOSITION <span>compose heterogeneous capabilities into one deliverable solution</span></div>
       <div class="empty-composition" *ngIf="!orderedBlocks.length">
         Add Building Blocks from the catalog to start composing a solution.
       </div>
 
       <article class="bb" *ngFor="let block of orderedBlocks">
         <div class="bb-head">
-          <div>
-            <button class="chevron" (click)="toggleExpanded(block)">{{ block.expanded ? '▾' : '▸' }}</button>
+          <button class="chevron" (click)="toggleExpanded(block)" [attr.aria-label]="block.expanded ? 'Collapse building block' : 'Expand building block'">{{ block.expanded ? '▾' : '▸' }}</button>
+          <div class="bb-icon">{{ definition(block).icon }}</div>
+          <div class="bb-title">
             <strong>{{ definition(block).name }}</strong>
-            <small>{{ definition(block).source }}</small>
+            <p>{{ definition(block).description }}</p>
+            <div class="badges">
+              <span class="badge source"><span>{{ definition(block).source.icon }}</span>{{ definition(block).source.label }}</span>
+              <span class="badge implementation"><span>{{ definition(block).implementation.icon }}</span>{{ definition(block).implementation.label }}</span>
+            </div>
           </div>
           <div class="bb-actions">
             <button (click)="move(block,-1)">↑</button><button (click)="move(block,1)">↓</button><button (click)="remove(block)">×</button>
           </div>
         </div>
 
-        <div class="io-summary">
-          <span></span><span class="inputs-count">↑ {{ definition(block).inputs.length }} INPUTS</span>
+        <div class="io-overview">
+          <div class="io-overview-group">
+            <span class="io-label">↑ {{ definition(block).inputs.length }} INPUTS</span>
+            <span class="parameter-chip" *ngFor="let input of definition(block).inputs">{{ input.name }}</span>
+          </div>
+          <div class="io-overview-group outputs-overview">
+            <span class="io-label">↓ {{ definition(block).outputs.length }} OUTPUTS</span>
+            <span class="parameter-chip" *ngFor="let output of definition(block).outputs">{{ output.name }}</span>
+          </div>
         </div>
 
-        <div class="bb-body" *ngIf="block.expanded">
-          <div class="spacer"></div>
-          <div class="io-list inputs">
-            <div class="parameter" *ngFor="let input of definition(block).inputs">
+        <div class="bb-details" *ngIf="block.expanded">
+          <div class="section-caption">INPUT BINDINGS</div>
+          <div class="parameter" *ngFor="let input of definition(block).inputs">
+            <div class="parameter-info">
               <div class="parameter-name">{{ input.name }} <small>{{ input.type }}</small></div>
+              <p>{{ input.description }}</p>
+            </div>
+            <div class="binding-controls">
               <select [ngModel]="block.inputs[input.name]?.source" (ngModelChange)="setSource(block,input.name,$event)">
-                <option value="user">User input</option>
-                <option value="static">Static value</option>
                 <option value="meshstack-context">meshStack context</option>
+                <option value="static">Static value</option>
+                <option value="user">User input</option>
+                <option value="platform-operator">Platform operator input</option>
                 <option value="bb-output">Building Block output</option>
               </select>
-              <input *ngIf="block.inputs[input.name]?.source === 'user'" [(ngModel)]="block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="parameter name">
-              <input *ngIf="block.inputs[input.name]?.source === 'static'" [(ngModel)]="block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="value">
+              <input *ngIf="block.inputs[input.name]?.source === 'user' || block.inputs[input.name]?.source === 'platform-operator'" [(ngModel)]="block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="parameter name">
+              <input *ngIf="block.inputs[input.name]?.source === 'static'" [(ngModel)]="block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="fixed value">
               <select *ngIf="block.inputs[input.name]?.source === 'meshstack-context'" [(ngModel)]="block.inputs[input.name].contextKey" (ngModelChange)="changed()">
-                <option value="project_identifier">Project Identifier</option>
                 <option value="workspace_identifier">Workspace Identifier</option>
+                <option value="project_identifier">Project Identifier</option>
                 <option value="platform_identifier">Full Platform Identifier</option>
                 <option value="tenant_id">Platform Tenant ID</option>
                 <option value="meshstack_tenant_uuid">meshStack Tenant UUID</option>
@@ -101,15 +124,15 @@
               </select>
             </div>
           </div>
-        </div>
 
-        <div class="outputs" *ngIf="block.expanded">
-          <div></div>
-          <div class="io-list">
-            <div class="output" *ngFor="let output of definition(block).outputs"><span>↓</span> {{ output.name }} <small>{{ output.type }}</small></div>
+          <div class="section-caption outputs-caption">OUTPUTS</div>
+          <div class="output-row" *ngFor="let output of definition(block).outputs">
+            <div class="parameter-info">
+              <div class="parameter-name">{{ output.name }} <small>{{ output.type }}</small></div>
+              <p>{{ output.description }}</p>
+            </div>
           </div>
         </div>
-        <div class="io-summary bottom"><span></span><span>↓ {{ definition(block).outputs.length }} OUTPUTS</span></div>
       </article>
     </section>
 
