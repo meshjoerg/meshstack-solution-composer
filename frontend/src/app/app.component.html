@@ -27,8 +27,8 @@
                 <small>{{ item.implementation.label }}</small>
               </div>
               <div class="catalog-io">
-                <div class="io-grid-row"><span class="io-label">IN</span><div class="io-values"><span class="mini-name" *ngFor="let input of item.inputs; trackBy: trackParameter">{{ input.name }}</span></div></div>
-                <div class="io-grid-row"><span class="io-label">OUT</span><div class="io-values"><span class="mini-name" *ngFor="let output of item.outputs; trackBy: trackParameter">{{ output.name }}</span></div></div>
+                <div class="io-grid-row"><span class="io-label io-label-input">↑ IN</span><div class="io-values"><span class="mini-name" *ngFor="let input of item.inputs; trackBy: trackParameter">{{ input.name }}</span></div></div>
+                <div class="io-grid-row"><span class="io-label io-label-output">↓ OUT</span><div class="io-values"><span class="mini-name" *ngFor="let output of item.outputs; trackBy: trackParameter">{{ output.name }}</span></div></div>
               </div>
             </div>
             <div class="source-strip">{{ item.source.label }}</div>
@@ -86,13 +86,13 @@
               </div>
               <div class="io-stack">
                 <div class="io-grid-row">
-                  <span class="io-label">INPUTS</span>
+                  <span class="io-label io-label-input">↑ INPUTS</span>
                   <div class="io-values">
                     <button class="parameter-chip parameter-chip-button" type="button" *ngFor="let input of definition(placement.block).inputs; trackBy: trackParameter" [class.source-meshstack]="placement.block.inputs[input.name]?.source === 'meshstack-context'" [class.source-static]="placement.block.inputs[input.name]?.source === 'static'" [class.source-user]="placement.block.inputs[input.name]?.source === 'user'" [class.source-operator]="placement.block.inputs[input.name]?.source === 'platform-operator'" [class.source-bb-output]="placement.block.inputs[input.name]?.source === 'bb-output'" (click)="editInput(placement.block,input.name)">{{ input.name }}</button>
                   </div>
                 </div>
                 <div class="io-grid-row output-row-compact">
-                  <span class="io-label">OUTPUTS</span>
+                  <span class="io-label io-label-output">↓ OUTPUTS</span>
                   <div class="io-values"><span class="parameter-chip" *ngFor="let output of definition(placement.block).outputs; trackBy: trackParameter">{{ output.name }}</span></div>
                 </div>
               </div>
@@ -117,7 +117,8 @@
                       <option value="platform-operator">Platform operator input</option>
                       <option value="bb-output">Building Block output</option>
                     </select>
-                    <input *ngIf="placement.block.inputs[input.name]?.source === 'user' || placement.block.inputs[input.name]?.source === 'platform-operator'" [ngModel]="placement.block.inputs[input.name]?.value || ''" (ngModelChange)="setBindingValue(placement.block,input.name,$event)" placeholder="parameter name">
+                    <div class="runtime-binding-hint source-user" *ngIf="placement.block.inputs[input.name]?.source === 'user'">Value is entered by the solution user when the Building Block is instantiated.</div>
+                    <div class="runtime-binding-hint source-operator" *ngIf="placement.block.inputs[input.name]?.source === 'platform-operator'">Value is supplied by the platform operator when the Building Block is configured.</div>
                     <input *ngIf="placement.block.inputs[input.name]?.source === 'static'" [ngModel]="placement.block.inputs[input.name]?.value || ''" (ngModelChange)="setBindingValue(placement.block,input.name,$event)" placeholder="fixed value">
                     <select *ngIf="placement.block.inputs[input.name]?.source === 'meshstack-context'" [ngModel]="placement.block.inputs[input.name]?.contextKey || 'project_identifier'" (ngModelChange)="setContextKey(placement.block,input.name,$event)">
                       <option value="workspace_identifier">Workspace Identifier</option><option value="project_identifier">Project Identifier</option><option value="platform_identifier">Full Platform Identifier</option><option value="tenant_id">Platform Tenant ID</option><option value="meshstack_tenant_uuid">meshStack Tenant UUID</option><option value="user_permissions">User Permissions</option><option value="author">Author</option><option value="tags">Tags</option>
@@ -143,15 +144,20 @@
 
       <article class="context static">
         <h3>STATIC CONTEXT <span>↓</span></h3>
-        <div class="context-pills" *ngIf="staticGroups.length; else noStatic">
-          <ng-container *ngFor="let group of staticGroups"><span class="context-pill source-static" *ngFor="let item of group.items"><b>{{ group.blockName }}</b><i>·</i>{{ item }}</span></ng-container>
+        <div class="context-bb-groups" *ngIf="staticGroups.length; else noStatic">
+          <div class="context-bb-row" *ngFor="let group of staticGroups">
+            <span class="context-bb-name">{{ group.blockName }}</span>
+            <div class="context-defaults context-bb-params">
+              <span class="source-static" *ngFor="let item of group.items">{{ item }}</span>
+            </div>
+          </div>
         </div>
-        <ng-template #noStatic><p class="empty">Fixed by the solution blueprint</p></ng-template>
+        <ng-template #noStatic><p class="empty">No parameters assigned to static context</p></ng-template>
       </article>
 
       <article class="context user">
         <h3>USER / OPERATOR CONTEXT <span>↓</span></h3>
-        <div class="user-operator-groups" *ngIf="userOperatorGroups.length; else noUserOperator">
+        <div class="context-bb-groups" *ngIf="userOperatorGroups.length; else noUserOperator">
           <div class="context-bb-row" *ngFor="let group of userOperatorGroups">
             <span class="context-bb-name">{{ group.blockName }}</span>
             <div class="context-defaults context-bb-params">
