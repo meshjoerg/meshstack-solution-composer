@@ -22,12 +22,14 @@
             <strong>{{ item.name }}</strong>
             <p>{{ item.description }}</p>
 
-            <details class="catalog-details">
+            <details class="catalog-details" #catalogDetail>
               <summary class="catalog-details-summary">
+                <span class="catalog-toggle-chevron" aria-hidden="true">{{ catalogDetail.open ? '⌃' : '⌄' }}</span>
                 <span class="catalog-implementation-summary" [title]="item.implementation.label">
                   <img *ngIf="implementationIconUrl(item.implementation.type) as iconUrl; else catalogSummaryManual" [src]="iconUrl" [alt]="item.implementation.label">
                   <ng-template #catalogSummaryManual><span class="summary-gear">⚙</span></ng-template>
                   <small>{{ item.implementation.label }}</small>
+                  <span class="official-mini" *ngIf="item.officialIntegration" title="Official Integration">★</span>
                 </span>
                 <span class="catalog-counts"><b>→ {{ item.inputs.length }}</b> inputs <i>·</i> <b>↓ {{ item.outputs.length }}</b> outputs</span>
               </summary>
@@ -37,11 +39,14 @@
                   <img *ngIf="implementationIconUrl(item.implementation.type) as iconUrl; else catalogManualIcon" [src]="iconUrl" [alt]="item.implementation.label">
                   <ng-template #catalogManualIcon><span>⚙</span></ng-template>
                   <small>{{ item.implementation.label }}</small>
+                  <span class="official-ribbon" *ngIf="item.officialIntegration">★ OFFICIAL</span>
                 </div>
                 <div class="catalog-io">
                   <div class="io-grid-row">
                     <span class="io-label io-label-input">IN</span>
-                    <div class="io-values"><span class="mini-name input-flow-chip" *ngFor="let input of item.inputs; trackBy: trackParameter">{{ input.name }}</span></div>
+                    <div class="io-values">
+                      <span class="mini-name input-flow-chip" *ngFor="let input of item.inputs; trackBy: trackParameter"><span class="input-chip-arrow">→</span><span>{{ input.name }}</span></span>
+                    </div>
                   </div>
                   <div class="io-grid-row">
                     <span class="io-label io-label-output">↓ OUT</span>
@@ -94,8 +99,8 @@
                 <p>{{ definition(placement.block).description }}</p>
               </div>
               <div class="bb-actions">
-                <button type="button" title="Fold Building Block" (click)="toggleExpanded(placement.block)">{{ placement.block.expanded ? '▴' : '▾' }}</button>
-                <button type="button" title="Remove Building Block" (click)="remove(placement.block)">×</button>
+                <button class="chevron-button" type="button" title="{{ placement.block.expanded ? 'Fold Building Block' : 'Expand Building Block' }}" (click)="toggleExpanded(placement.block)">{{ placement.block.expanded ? '⌃' : '⌄' }}</button>
+                <button class="remove-button" type="button" title="Remove Building Block" (click)="remove(placement.block)">×</button>
               </div>
             </div>
 
@@ -105,6 +110,7 @@
                   <img *ngIf="implementationIconUrl(definition(placement.block).implementation.type) as iconUrl; else manualIcon" [src]="iconUrl" [alt]="definition(placement.block).implementation.label">
                   <ng-template #manualIcon><span>⚙</span></ng-template>
                   <small>{{ definition(placement.block).implementation.label }}</small>
+                  <span class="official-ribbon" *ngIf="definition(placement.block).officialIntegration">★ OFFICIAL</span>
                 </div>
 
                 <div class="io-stack">
@@ -117,7 +123,7 @@
                         [class.source-user]="placement.block.inputs[input.name]?.source === 'user'"
                         [class.source-operator]="placement.block.inputs[input.name]?.source === 'platform-operator'"
                         [class.source-bb-output]="placement.block.inputs[input.name]?.source === 'bb-output'"
-                        (click)="openQuickEditor(placement.block,input.name,$event)">{{ input.name }}</button>
+                        (click)="openQuickEditor(placement.block,input.name,$event)"><span class="input-chip-arrow">→</span><span>{{ input.name }}</span></button>
                     </div>
                   </div>
 
@@ -132,13 +138,13 @@
 
               <div class="batch-editor-shell">
                 <button class="batch-editor-toggle" type="button" (click)="toggleBatchEditor(placement.block)">
-                  <span>EDIT INPUT PARAMETERS</span><span>{{ isBatchEditorOpen(placement.block) ? '▾' : '▸' }}</span>
+                  <span>EDIT INPUT PARAMETERS</span><span class="toggle-chevron">{{ isBatchEditorOpen(placement.block) ? '⌃' : '⌄' }}</span>
                 </button>
 
                 <div class="bb-details compact-details" *ngIf="isBatchEditorOpen(placement.block)">
                   <div class="parameter" *ngFor="let input of definition(placement.block).inputs; trackBy: trackParameter">
                     <div class="parameter-info">
-                      <div class="parameter-name"><span class="inline-input-arrow">→</span> {{ input.name }} <small>{{ input.type }}</small></div>
+                      <div class="parameter-name"><span class="parameter-name-core"><span class="inline-input-arrow">→</span><span>{{ input.name }}</span></span> <small>{{ input.type }}</small></div>
                       <p>{{ input.description }}</p>
                     </div>
                     <div class="binding-controls">
@@ -220,7 +226,7 @@
     <div class="quick-editor-head">
       <div>
         <span class="eyebrow">INPUT PARAMETER</span>
-        <strong><span class="inline-input-arrow">→</span> {{ quickEditorInput.name }} <small>{{ quickEditorInput.type }}</small></strong>
+        <strong><span class="parameter-name-core"><span class="inline-input-arrow">→</span><span>{{ quickEditorInput.name }}</span></span> <small>{{ quickEditorInput.type }}</small></strong>
         <p>{{ quickEditorInput.description }}</p>
       </div>
       <button type="button" (click)="closeQuickEditor()">×</button>
