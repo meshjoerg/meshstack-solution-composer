@@ -12,6 +12,17 @@ interface ContextGroup {
   items: string[];
 }
 
+interface ContextPill {
+  blockName: string;
+  parameter: string;
+  operator: boolean;
+}
+
+interface CatalogGroup {
+  platform: string;
+  items: BuildingBlockDefinition[];
+}
+
 interface CompositionPlacement {
   block: BlueprintBlock;
   row: number;
@@ -49,15 +60,42 @@ export class AppComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     const restored = (await this.persistence.loadLast()) ?? this.newBlueprint();
     const knownDefinitions = new Set(this.catalog.map(item => item.id));
-    restored.blocks = restored.blocks.filter(block => knownDefinitions.has(block.definitionId));
-    restored.blocks.forEach((block, index) => block.order = index);
+    restored.blocks = (restored.blocks ?? []).filter(block => knownDefinitions.has(block.definitionId));
+    const knownInstances = new Set(restored.blocks.map(block => block.instanceId));
+
+    restored.blocks.forEach((block, index) => {
+      block.order = index;
+      this.ensureBlockBindings(block);
+      for (const [inputName, binding] of Object.entries(block.inputs)) {
+        if (binding.source === 'bb-output' && (!binding.sourceBlockId || !knownInstances.has(binding.sourceBlockId))) {
+          block.inputs[inputName] = this.defaultUserBinding(block, inputName);
+        }
+      }
+    });
+
     this.blueprint = restored;
+    await this.persistence.save(this.blueprint);
     this.changeDetector.detectChanges();
   }
 
   get filteredCatalog(): BuildingBlockDefinition[] {
     const q = this.query.trim().toLowerCase();
     return q ? this.catalog.filter(x => `${x.name} ${x.description} ${x.platform ?? ''}`.toLowerCase().includes(q)) : this.catalog;
+  }
+
+  get catalogGroups(): CatalogGroup[] {
+    const groups = new Map<string, BuildingBlockDefinition[]>();
+    for (const item of this.filteredCatalog) {
+      const platform = item.platform?.trim() || 'Other';
+      if (!groups.has(platform)) groups.set(platform, []);
+      groups.get(platform)!.push(item);
+    }
+    return [...groups.entries()]
+      .map(([platform, items]) => ({
+        platform,
+        items: [...items].sort((a, b) => a.name.localeCompare(b.name))
+      }))
+      .sort((a, b) => a.platform.localeCompare(b.platform));
   }
 
   get orderedBlocks(): BlueprintBlock[] {
@@ -136,8 +174,21 @@ export class AppComponent implements OnInit {
 
   get terraform(): string { return generateTerraform(this.blueprint, this.catalog); }
 
-  get userOperatorGroups(): ContextGroup[] {
-    return this.contextGroups(['user', 'platform-operator']);
+  get userOperatorPills(): ContextPill[] {
+    const result: ContextPill[] = [];
+    for (const block of this.orderedBlocks) {
+      const definition = this.definition(block);
+      for (const [parameter, binding] of Object.entries(block.inputs ?? {})) {
+        if (binding.source === 'user' || binding.source === 'platform-operator') {
+          result.push({
+            blockName: definition.name,
+            parameter,
+            operator: binding.source === 'platform-operator'
+          });
+        }
+      }
+    }
+    return result;
   }
 
   get staticGroups(): ContextGroup[] {
@@ -165,7 +216,7 @@ export class AppComponent implements OnInit {
 
   parentBlocks(block: BlueprintBlock): BlueprintBlock[] {
     const ids = new Set(
-      Object.values(block.inputs)
+      Object.values(block.inputs ?? {})
         .filter(binding => binding.source === 'bb-output' && binding.sourceBlockId)
         .map(binding => binding.sourceBlockId as string)
     );
@@ -174,16 +225,15 @@ export class AppComponent implements OnInit {
 
   add(definition: BuildingBlockDefinition): void {
     if (this.blueprint.blocks.some(b => b.definitionId === definition.id)) return;
-    this.blueprint.blocks.push({
+    const block: BlueprintBlock = {
       instanceId: crypto.randomUUID(),
       definitionId: definition.id,
       order: this.blueprint.blocks.length,
       expanded: false,
-      inputs: Object.fromEntries(definition.inputs.map(input => [
-        input.name,
-        { source: 'user', value: `${definition.id.replace(/-/g, '_')}_${input.name}` } satisfies InputBinding
-      ]))
-    });
+      inputs: {}
+    };
+    this.blueprint.blocks.push(block);
+    this.ensureBlockBindings(block);
     void this.changed();
   }
 
@@ -203,11 +253,13 @@ export class AppComponent implements OnInit {
   }
 
   toggleExpanded(block: BlueprintBlock): void {
+    this.ensureBlockBindings(block);
     block.expanded = !block.expanded;
     void this.changed();
   }
 
   setSource(block: BlueprintBlock, input: string, source: InputSourceType): void {
+    this.ensureBlockBindings(block);
     const current = block.inputs[input] ?? { source };
     block.inputs[input] = { source };
     if (source === 'user' || source === 'platform-operator') {
@@ -245,15 +297,41 @@ export class AppComponent implements OnInit {
     this.saved = true;
   }
 
+  private ensureBlockBindings(block: BlueprintBlock): void {
+    const definition = this.catalog.find(item => item.id === block.definitionId);
+    if (!definition) return;
+    block.inputs = block.inputs ?? {};
+
+    const validNames = new Set(definition.inputs.map(input => input.name));
+    for (const existingName of Object.keys(block.inputs)) {
+      if (!validNames.has(existingName)) delete block.inputs[existingName];
+    }
+
+    for (const input of definition.inputs) {
+      const existing = block.inputs[input.name];
+      if (!existing?.source) {
+        block.inputs[input.name] = this.defaultUserBinding(block, input.name);
+      } else if ((existing.source === 'user' || existing.source === 'platform-operator') && !existing.value) {
+        existing.value = `${block.definitionId.replace(/-/g, '_')}_${input.name}`;
+      }
+    }
+  }
+
+  private defaultUserBinding(block: BlueprintBlock, inputName: string): InputBinding {
+    return {
+      source: 'user',
+      value: `${block.definitionId.replace(/-/g, '_')}_${inputName}`
+    };
+  }
+
   private contextGroups(sources: InputSourceType[]): ContextGroup[] {
     const allowed = new Set<InputSourceType>(sources);
     return this.orderedBlocks.flatMap(block => {
-      const items = Object.entries(block.inputs)
+      const items = Object.entries(block.inputs ?? {})
         .filter(([, binding]) => allowed.has(binding.source))
         .map(([name, binding]) => {
           if (binding.source === 'static') return `${name} = ${binding.value || '…'}`;
           if (binding.source === 'meshstack-context') return `${name} ← ${binding.contextKey}`;
-          if (binding.source === 'platform-operator') return `${name} · operator`;
           return name;
         });
 
