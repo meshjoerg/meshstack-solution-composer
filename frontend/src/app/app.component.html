@@ -7,27 +7,39 @@
   <aside class="catalog panel">
     <div class="panel-title">BUILDING BLOCKS <span>available capabilities</span></div>
     <input class="search" [(ngModel)]="query" placeholder="Search capabilities…">
+
     <div class="catalog-list">
-      <article class="catalog-item" *ngFor="let item of filteredCatalog">
-        <div class="catalog-icon">{{ item.icon }}</div>
-        <div class="catalog-copy">
-          <strong>{{ item.name }}</strong>
-          <p>{{ item.description }}</p>
-          <div class="catalog-anatomy">
-            <div class="automation-mark" [title]="item.implementation.label">
-              <img *ngIf="implementationIconUrl(item.implementation.type) as iconUrl; else catalogManualIcon" [src]="iconUrl" [alt]="item.implementation.label">
-              <ng-template #catalogManualIcon><span>⚙</span></ng-template>
-            </div>
-            <div class="catalog-io">
-              <div class="io-grid-row"><span class="io-label">IN</span><div class="io-values"><span class="mini-name" *ngFor="let input of item.inputs">{{ input.name }}</span></div></div>
-              <div class="io-grid-row"><span class="io-label">OUT</span><div class="io-values"><span class="mini-name" *ngFor="let output of item.outputs">{{ output.name }}</span></div></div>
-            </div>
+      <details class="platform-group" *ngFor="let group of catalogGroups" [open]="!!query || catalogGroups.length <= 4">
+        <summary>
+          <span>{{ group.platform }}</span>
+          <small>{{ group.items.length }}</small>
+        </summary>
+
+        <article class="catalog-item" *ngFor="let item of group.items">
+          <div class="catalog-icon">
+            <img *ngIf="item.logoUrl; else catalogFallbackIcon" [src]="item.logoUrl" [alt]="item.name">
+            <ng-template #catalogFallbackIcon><span>{{ item.icon }}</span></ng-template>
           </div>
-          <div class="source-strip">{{ item.source.label }}</div>
-        </div>
-        <button class="add" (click)="add(item)">+</button>
-      </article>
+          <div class="catalog-copy">
+            <strong>{{ item.name }}</strong>
+            <p>{{ item.description }}</p>
+            <div class="catalog-anatomy">
+              <div class="automation-mark" [title]="item.implementation.label">
+                <img *ngIf="implementationIconUrl(item.implementation.type) as iconUrl; else catalogManualIcon" [src]="iconUrl" [alt]="item.implementation.label">
+                <ng-template #catalogManualIcon><span>⚙</span></ng-template>
+              </div>
+              <div class="catalog-io">
+                <div class="io-grid-row"><span class="io-label">IN</span><div class="io-values"><span class="mini-name" *ngFor="let input of item.inputs">{{ input.name }}</span></div></div>
+                <div class="io-grid-row"><span class="io-label">OUT</span><div class="io-values"><span class="mini-name" *ngFor="let output of item.outputs">{{ output.name }}</span></div></div>
+              </div>
+            </div>
+            <div class="source-strip">{{ item.source.label }}</div>
+          </div>
+          <button class="add" (click)="add(item)">+</button>
+        </article>
+      </details>
     </div>
+
     <button class="secondary wide" disabled>+ New Building Block · later</button>
   </aside>
 
@@ -49,26 +61,26 @@
         <div class="context-defaults">
           <span *ngFor="let item of meshStackDefaults">{{ item }}</span>
         </div>
-        <div class="context-group" *ngFor="let group of meshStackBindingGroups">
-          <div class="context-group-title">{{ group.blockName }}</div>
-          <code *ngFor="let item of group.items">{{ item }}</code>
-        </div>
       </article>
+
       <article class="context static">
         <h3>STATIC CONTEXT <span>↓</span></h3>
-        <p *ngIf="!staticGroups.length" class="empty">Fixed by the solution blueprint</p>
-        <div class="context-group" *ngFor="let group of staticGroups">
-          <div class="context-group-title">{{ group.blockName }}</div>
-          <code *ngFor="let item of group.items">{{ item }}</code>
+        <div class="context-pills" *ngIf="staticGroups.length; else noStatic">
+          <ng-container *ngFor="let group of staticGroups">
+            <span class="context-pill" *ngFor="let item of group.items"><b>{{ group.blockName }}</b><i>·</i>{{ item }}</span>
+          </ng-container>
         </div>
+        <ng-template #noStatic><p class="empty">Fixed by the solution blueprint</p></ng-template>
       </article>
+
       <article class="context user">
         <h3>USER / OPERATOR CONTEXT <span>↓</span></h3>
-        <p *ngIf="!userOperatorGroups.length" class="empty">Provided when the solution is requested or operated</p>
-        <div class="context-group" *ngFor="let group of userOperatorGroups">
-          <div class="context-group-title">{{ group.blockName }}</div>
-          <code *ngFor="let item of group.items">{{ item }}</code>
+        <div class="context-pills" *ngIf="userOperatorPills.length; else noUserOperator">
+          <span class="context-pill" *ngFor="let item of userOperatorPills" [title]="item.operator ? 'Platform operator input' : 'User input'">
+            <b>{{ item.blockName }}</b><i>·</i>{{ item.parameter }}<em *ngIf="item.operator">operator</em>
+          </span>
         </div>
+        <ng-template #noUserOperator><p class="empty">Provided when the solution is requested or operated</p></ng-template>
       </article>
     </section>
 
@@ -89,7 +101,10 @@
             <div class="source-strip card-source">{{ definition(placement.block).source.label }}</div>
 
             <div class="bb-head compact-head">
-              <div class="bb-icon">{{ definition(placement.block).icon }}</div>
+              <div class="bb-icon">
+                <img *ngIf="definition(placement.block).logoUrl; else composerFallbackIcon" [src]="definition(placement.block).logoUrl" [alt]="definition(placement.block).name">
+                <ng-template #composerFallbackIcon><span>{{ definition(placement.block).icon }}</span></ng-template>
+              </div>
               <div class="bb-title">
                 <strong>{{ definition(placement.block).name }}</strong>
                 <p>{{ definition(placement.block).description }}</p>
@@ -130,16 +145,16 @@
                   <p>{{ input.description }}</p>
                 </div>
                 <div class="binding-controls">
-                  <select [ngModel]="placement.block.inputs[input.name]?.source" (ngModelChange)="setSource(placement.block,input.name,$event)">
+                  <select [ngModel]="placement.block.inputs[input.name]?.source || 'user'" (ngModelChange)="setSource(placement.block,input.name,$event)">
                     <option value="meshstack-context">meshStack context</option>
                     <option value="static">Static value</option>
                     <option value="user">User input</option>
                     <option value="platform-operator">Platform operator input</option>
                     <option value="bb-output">Building Block output</option>
                   </select>
-                  <input *ngIf="placement.block.inputs[input.name]?.source === 'user' || placement.block.inputs[input.name]?.source === 'platform-operator'" [(ngModel)]="placement.block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="parameter name">
-                  <input *ngIf="placement.block.inputs[input.name]?.source === 'static'" [(ngModel)]="placement.block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="fixed value">
-                  <select *ngIf="placement.block.inputs[input.name]?.source === 'meshstack-context'" [(ngModel)]="placement.block.inputs[input.name].contextKey" (ngModelChange)="changed()">
+                  <input *ngIf="placement.block.inputs[input.name]?.source === 'user' || placement.block.inputs[input.name]?.source === 'platform-operator'" [ngModel]="placement.block.inputs[input.name]?.value || ''" (ngModelChange)="placement.block.inputs[input.name].value=$event; changed()" placeholder="parameter name">
+                  <input *ngIf="placement.block.inputs[input.name]?.source === 'static'" [ngModel]="placement.block.inputs[input.name]?.value || ''" (ngModelChange)="placement.block.inputs[input.name].value=$event; changed()" placeholder="fixed value">
+                  <select *ngIf="placement.block.inputs[input.name]?.source === 'meshstack-context'" [ngModel]="placement.block.inputs[input.name]?.contextKey || 'project_identifier'" (ngModelChange)="placement.block.inputs[input.name].contextKey=$event; changed()">
                     <option value="workspace_identifier">Workspace Identifier</option>
                     <option value="project_identifier">Project Identifier</option>
                     <option value="platform_identifier">Full Platform Identifier</option>
@@ -149,7 +164,7 @@
                     <option value="author">Author</option>
                     <option value="tags">Tags</option>
                   </select>
-                  <select *ngIf="placement.block.inputs[input.name]?.source === 'bb-output'" [ngModel]="(placement.block.inputs[input.name].sourceBlockId || '') + '|' + (placement.block.inputs[input.name].sourceOutput || '')" (ngModelChange)="setOutputReference(placement.block,input.name,$event)">
+                  <select *ngIf="placement.block.inputs[input.name]?.source === 'bb-output'" [ngModel]="(placement.block.inputs[input.name]?.sourceBlockId || '') + '|' + (placement.block.inputs[input.name]?.sourceOutput || '')" (ngModelChange)="setOutputReference(placement.block,input.name,$event)">
                     <option value="|" disabled>Select Building Block output…</option>
                     <option *ngFor="let candidate of outputCandidates(placement.block)" [value]="candidate.block.instanceId + '|' + candidate.output">{{ candidate.label }} → {{ candidate.output }}</option>
                   </select>
