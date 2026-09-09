@@ -1,9 +1,40 @@
+.workspace {
+  grid-template-columns: 360px minmax(760px, 1fr);
+}
+
+.catalog-list {
+  padding-right: 8px;
+}
+
 .platform-group > summary > span {
   text-transform: uppercase;
   font-variant-caps: all-small-caps;
   letter-spacing: .12em;
   font-size: 13px;
   font-weight: 800;
+}
+
+.platform-group > summary::before {
+  width: 18px;
+  margin-right: 8px;
+  font-size: 16px;
+  line-height: 1;
+  text-align: center;
+}
+
+.catalog-item {
+  grid-template-columns: 38px minmax(0, 1fr) 34px;
+  gap: 11px;
+  padding: 11px 12px;
+}
+
+.catalog-copy {
+  min-width: 0;
+}
+
+.catalog-copy > strong {
+  display: block;
+  overflow-wrap: anywhere;
 }
 
 .catalog-details {
@@ -24,20 +55,34 @@
 .catalog-details-summary {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 32px;
+  gap: 7px;
+  min-height: 34px;
   color: #68747e;
 }
 
 .catalog-details-summary::after {
-  content: '▸';
-  margin-left: auto;
-  color: #87929b;
-  font-size: 10px;
+  display: none;
 }
 
-.catalog-details[open] > .catalog-details-summary::after {
-  content: '▾';
+.catalog-toggle-chevron {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: #53616c;
+  background: #eef2f4;
+  border: 1px solid #d8dfe4;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.catalog-details-summary:hover .catalog-toggle-chevron {
+  background: #e6ecef;
+  border-color: #c7d1d8;
 }
 
 .catalog-implementation-summary {
@@ -82,18 +127,93 @@
   margin-top: 7px;
 }
 
-.input-flow-chip::before {
-  content: '→';
-  display: inline-block;
-  margin-right: 4px;
-  color: #526b7b;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  font-weight: 800;
+.input-flow-chip {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex-wrap: nowrap;
 }
 
+.input-flow-chip::before {
+  display: none !important;
+}
+
+.input-chip-arrow,
 .inline-input-arrow {
+  flex: 0 0 auto;
   color: #526b7b;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.parameter-name-core {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.official-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff3d4;
+  border: 1px solid #e7c86f;
+  color: #a46c00;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.official-ribbon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 5px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: #fff3d4;
+  border: 1px solid #e4c15e;
+  color: #925e00;
+  font-size: 7px !important;
+  font-weight: 850;
+  letter-spacing: .05em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.bb-actions .chevron-button {
+  width: 29px;
+  height: 29px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #c7d0d7;
+  border-radius: 6px;
+  background: #f4f7f8;
+  color: #4d5d68;
+  font-size: 19px;
   font-weight: 800;
+  line-height: 1;
+}
+
+.bb-actions .chevron-button:hover {
+  background: #eaf0f3;
+}
+
+.bb-actions .remove-button {
+  width: 27px;
+  height: 29px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 18px;
 }
 
 .batch-editor-shell {
@@ -120,6 +240,22 @@
 
 .batch-editor-toggle:hover {
   background: #eef2f4;
+}
+
+.toggle-chevron {
+  width: 25px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d0d8dd;
+  border-radius: 5px;
+  background: #fff;
+  color: #53616c;
+  font-size: 17px;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 .batch-editor-shell .compact-details {
@@ -207,4 +343,10 @@
   min-width: 0;
   font-size: 11px;
   padding: 6px 7px;
+}
+
+@media (max-width: 1050px) {
+  .workspace {
+    grid-template-columns: 310px minmax(620px, 1fr);
+  }
 }
