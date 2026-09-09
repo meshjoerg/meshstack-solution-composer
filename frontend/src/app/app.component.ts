@@ -29,6 +29,10 @@ export class AppComponent implements OnInit {
     return q ? this.catalog.filter(x => `${x.name} ${x.description}`.toLowerCase().includes(q)) : this.catalog;
   }
 
+  get orderedBlocks(): BlueprintBlock[] {
+    return [...this.blueprint.blocks].sort((a, b) => a.order - b.order);
+  }
+
   get terraform(): string { return generateTerraform(this.blueprint, this.catalog); }
 
   get userContext(): string[] { return this.contextEntries('user'); }
@@ -46,23 +50,32 @@ export class AppComponent implements OnInit {
       definitionId: definition.id,
       order: this.blueprint.blocks.length,
       expanded: true,
-      inputs: Object.fromEntries(definition.inputs.map(input => [input.name, { source: 'user', value: `${definition.id.replace(/-/g, '_')}_${input.name}` } satisfies InputBinding]))
+      inputs: Object.fromEntries(definition.inputs.map(input => [
+        input.name,
+        { source: 'user', value: `${definition.id.replace(/-/g, '_')}_${input.name}` } satisfies InputBinding
+      ]))
     });
-    this.changed();
+    void this.changed();
   }
 
   remove(block: BlueprintBlock): void {
     this.blueprint.blocks = this.blueprint.blocks.filter(x => x.instanceId !== block.instanceId);
-    this.changed();
+    this.normalizeOrder();
+    void this.changed();
   }
 
   move(block: BlueprintBlock, delta: number): void {
-    const sorted = [...this.blueprint.blocks].sort((a,b) => a.order-b.order);
+    const sorted = this.orderedBlocks;
     const index = sorted.findIndex(x => x.instanceId === block.instanceId);
     const target = index + delta;
     if (target < 0 || target >= sorted.length) return;
     [sorted[index].order, sorted[target].order] = [sorted[target].order, sorted[index].order];
-    this.changed();
+    void this.changed();
+  }
+
+  toggleExpanded(block: BlueprintBlock): void {
+    block.expanded = !block.expanded;
+    void this.changed();
   }
 
   setSource(block: BlueprintBlock, input: string, source: InputSourceType): void {
@@ -76,19 +89,23 @@ export class AppComponent implements OnInit {
       block.inputs[input].sourceBlockId = candidate?.block.instanceId;
       block.inputs[input].sourceOutput = candidate?.output;
     }
-    this.changed();
+    void this.changed();
   }
 
   outputCandidates(current: BlueprintBlock): { block: BlueprintBlock; label: string; output: string }[] {
-    return this.blueprint.blocks
+    return this.orderedBlocks
       .filter(block => block.instanceId !== current.instanceId)
-      .flatMap(block => this.definition(block).outputs.map(output => ({ block, label: this.definition(block).name, output: output.name })));
+      .flatMap(block => this.definition(block).outputs.map(output => ({
+        block,
+        label: this.definition(block).name,
+        output: output.name
+      })));
   }
 
   setOutputReference(block: BlueprintBlock, input: string, value: string): void {
     const [sourceBlockId, sourceOutput] = value.split('|');
     block.inputs[input] = { source: 'bb-output', sourceBlockId, sourceOutput };
-    this.changed();
+    void this.changed();
   }
 
   qualified(block: BlueprintBlock, input: string): string { return `${block.definitionId}.${input}`; }
@@ -100,7 +117,7 @@ export class AppComponent implements OnInit {
   }
 
   private contextEntries(source: InputSourceType): string[] {
-    return this.blueprint.blocks.flatMap(block => Object.entries(block.inputs)
+    return this.orderedBlocks.flatMap(block => Object.entries(block.inputs)
       .filter(([, binding]) => binding.source === source)
       .map(([name, binding]) => {
         const key = this.qualified(block, name);
@@ -108,6 +125,10 @@ export class AppComponent implements OnInit {
         if (source === 'meshstack-context') return `${key} ← ${binding.contextKey}`;
         return key;
       }));
+  }
+
+  private normalizeOrder(): void {
+    this.orderedBlocks.forEach((block, index) => block.order = index);
   }
 
   private newBlueprint(): Blueprint {
