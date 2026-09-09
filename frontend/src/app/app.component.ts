@@ -91,7 +91,6 @@ export class AppComponent implements OnInit {
           continue;
         }
 
-        // Migration from the prototype's former implicit User Input default.
         const formerImplicitValue = `${block.definitionId.replace(/-/g, '_')}_${inputName}`;
         if (binding.source === 'user' && binding.value === formerImplicitValue) {
           block.inputs[inputName] = this.defaultUnassignedBinding();
@@ -226,11 +225,13 @@ export class AppComponent implements OnInit {
     const next: InputBinding = { source };
 
     if (source === 'user' || source === 'platform-operator') {
-      next.value = current?.value || `${block.definitionId.replace(/-/g, '_')}_${input}`;
+      // Runtime input. The generated Terraform variable name is an implementation detail,
+      // not something the composer user has to configure.
+      next.value = `${block.definitionId.replace(/-/g, '_')}_${input}`;
     } else if (source === 'static') {
-      next.value = current?.value || '';
+      next.value = current?.source === 'static' ? current.value || '' : '';
     } else if (source === 'meshstack-context') {
-      next.contextKey = current?.contextKey || 'project_identifier';
+      next.contextKey = current?.source === 'meshstack-context' ? current.contextKey || 'project_identifier' : 'project_identifier';
     } else if (source === 'bb-output') {
       const candidate = this.outputCandidates(block)[0];
       next.sourceBlockId = candidate?.block.instanceId;
