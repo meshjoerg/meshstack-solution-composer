@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CATALOG } from './catalog';
-import { Blueprint, BlueprintBlock, BuildingBlockDefinition, ImplementationType, InputBinding, InputSourceType } from './models';
+import { Blueprint, BlueprintBlock, BuildingBlockDefinition, ImplementationType, InputBinding, InputSourceType, ParameterDefinition } from './models';
 import { PersistenceService } from './persistence.service';
 import { generateTerraform } from './terraform';
 
@@ -51,9 +51,9 @@ interface OutputCandidate {
 export class AppComponent implements OnInit {
   private persistence = inject(PersistenceService);
   private changeDetector = inject(ChangeDetectorRef);
-  private activeInputByBlock = new Map<string, string>();
   private definitionMap = new Map(CATALOG.map(item => [item.id, item]));
   private outputCandidateCache = new Map<string, OutputCandidate[]>();
+  private batchEditorOpen = new Set<string>();
 
   catalog = CATALOG;
   query = '';
@@ -75,6 +75,11 @@ export class AppComponent implements OnInit {
   maxCompositionColumn = 0;
   terraformCode = '';
 
+  quickEditorBlock: BlueprintBlock | null = null;
+  quickEditorInput: ParameterDefinition | null = null;
+  quickEditorLeft = 0;
+  quickEditorTop = 0;
+
   async ngOnInit(): Promise<void> {
     const restored = (await this.persistence.loadLast()) ?? this.newBlueprint();
     const knownDefinitions = new Set(this.catalog.map(item => item.id));
@@ -83,7 +88,7 @@ export class AppComponent implements OnInit {
 
     restored.blocks.forEach((block, index) => {
       block.order = index;
-      block.expanded = false;
+      block.expanded = true;
       this.ensureBlockBindings(block);
       for (const [inputName, binding] of Object.entries(block.inputs)) {
         if (binding.source === 'bb-output' && (!binding.sourceBlockId || !knownInstances.has(binding.sourceBlockId))) {
@@ -163,7 +168,7 @@ export class AppComponent implements OnInit {
       instanceId: crypto.randomUUID(),
       definitionId: definition.id,
       order: this.blueprint.blocks.length,
-      expanded: false,
+      expanded: true,
       inputs: {}
     };
     this.ensureBlockBindings(block);
@@ -172,7 +177,12 @@ export class AppComponent implements OnInit {
   }
 
   remove(block: BlueprintBlock): void {
-    this.activeInputByBlock.delete(block.instanceId);
+    const name = this.definition(block).name;
+    if (!window.confirm(`Remove “${name}” from this solution?`)) return;
+
+    if (this.quickEditorBlock?.instanceId === block.instanceId) this.closeQuickEditor();
+    this.batchEditorOpen.delete(block.instanceId);
+
     const remainingBlocks = this.blueprint.blocks
       .filter(candidate => candidate.instanceId !== block.instanceId)
       .map(candidate => ({ ...candidate, inputs: { ...candidate.inputs } }));
@@ -191,32 +201,77 @@ export class AppComponent implements OnInit {
   }
 
   toggleExpanded(block: BlueprintBlock): void {
-    this.ensureBlockBindings(block);
-    if (block.expanded) {
-      block.expanded = false;
-      this.activeInputByBlock.delete(block.instanceId);
-      this.changeDetector.detectChanges();
-      return;
+    block.expanded = !block.expanded;
+    if (!block.expanded) {
+      this.batchEditorOpen.delete(block.instanceId);
+      if (this.quickEditorBlock?.instanceId === block.instanceId) this.closeQuickEditor();
     }
-
-    const firstInput = this.definition(block).inputs?.[0];
-    if (!firstInput) return;
-    block.expanded = true;
-    this.activeInputByBlock.set(block.instanceId, firstInput.name);
     this.changeDetector.detectChanges();
   }
 
-  editInput(block: BlueprintBlock, inputName: string): void {
+  toggleBatchEditor(block: BlueprintBlock): void {
+    const next = new Set(this.batchEditorOpen);
+    if (next.has(block.instanceId)) next.delete(block.instanceId);
+    else next.add(block.instanceId);
+    this.batchEditorOpen = next;
+    this.changeDetector.detectChanges();
+  }
+
+  isBatchEditorOpen(block: BlueprintBlock): boolean {
+    return this.batchEditorOpen.has(block.instanceId);
+  }
+
+  openQuickEditor(block: BlueprintBlock, inputName: string, event: MouseEvent): void {
     this.ensureBlockBindings(block);
-    block.expanded = true;
-    this.activeInputByBlock.set(block.instanceId, inputName);
+    const input = this.definition(block).inputs.find(candidate => candidate.name === inputName);
+    if (!input) return;
+
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const popupWidth = 340;
+    const popupHeight = 290;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    this.quickEditorLeft = Math.max(8, Math.min(rect.left, viewportWidth - popupWidth - 8));
+    const below = rect.bottom + 6;
+    this.quickEditorTop = below + popupHeight <= viewportHeight - 8
+      ? below
+      : Math.max(8, rect.top - popupHeight - 6);
+
+    this.quickEditorBlock = block;
+    this.quickEditorInput = input;
     this.changeDetector.detectChanges();
   }
 
-  isActiveInput(block: BlueprintBlock, inputName: string): boolean {
-    if (!block.expanded) return false;
-    const active = this.activeInputByBlock.get(block.instanceId) ?? this.definition(block).inputs?.[0]?.name;
-    return active === inputName;
+  closeQuickEditor(): void {
+    this.quickEditorBlock = null;
+    this.quickEditorInput = null;
+  }
+
+  quickSource(): InputSourceType {
+    if (!this.quickEditorBlock || !this.quickEditorInput) return 'unassigned';
+    return this.quickEditorBlock.inputs[this.quickEditorInput.name]?.source ?? 'unassigned';
+  }
+
+  setQuickSource(source: InputSourceType): void {
+    if (!this.quickEditorBlock || !this.quickEditorInput) return;
+    this.setSource(this.quickEditorBlock, this.quickEditorInput.name, source);
+  }
+
+  setQuickStaticValue(value: string): void {
+    if (!this.quickEditorBlock || !this.quickEditorInput) return;
+    this.setBindingValue(this.quickEditorBlock, this.quickEditorInput.name, value);
+  }
+
+  setQuickContextKey(contextKey: string): void {
+    if (!this.quickEditorBlock || !this.quickEditorInput) return;
+    this.setContextKey(this.quickEditorBlock, this.quickEditorInput.name, contextKey);
+  }
+
+  setQuickOutputReference(value: string): void {
+    if (!this.quickEditorBlock || !this.quickEditorInput) return;
+    this.setOutputReference(this.quickEditorBlock, this.quickEditorInput.name, value);
   }
 
   setSource(block: BlueprintBlock, input: string, source: InputSourceType): void {
@@ -225,8 +280,6 @@ export class AppComponent implements OnInit {
     const next: InputBinding = { source };
 
     if (source === 'user' || source === 'platform-operator') {
-      // Runtime input. The generated Terraform variable name is an implementation detail,
-      // not something the composer user has to configure.
       next.value = `${block.definitionId.replace(/-/g, '_')}_${input}`;
     } else if (source === 'static') {
       next.value = current?.source === 'static' ? current.value || '' : '';
