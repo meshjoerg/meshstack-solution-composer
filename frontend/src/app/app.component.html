@@ -13,11 +13,17 @@
         <div class="catalog-copy">
           <strong>{{ item.name }}</strong>
           <p>{{ item.description }}</p>
-          <div class="badges">
-            <span class="badge source"><span>{{ item.source.icon }}</span>{{ item.source.label }}</span>
-            <span class="badge implementation"><span>{{ item.implementation.icon }}</span>{{ item.implementation.label }}</span>
+          <div class="catalog-anatomy">
+            <div class="automation-mark" [title]="item.implementation.label">
+              <img *ngIf="implementationIconUrl(item.implementation.type) as iconUrl; else catalogManualIcon" [src]="iconUrl" [alt]="item.implementation.label">
+              <ng-template #catalogManualIcon><span>⚙</span></ng-template>
+            </div>
+            <div class="catalog-io">
+              <div><span class="io-label">IN</span><span class="mini-name" *ngFor="let input of item.inputs">{{ input.name }}</span></div>
+              <div><span class="io-label">OUT</span><span class="mini-name" *ngFor="let output of item.outputs">{{ output.name }}</span></div>
+            </div>
           </div>
-          <small>{{ item.inputs.length }} inputs · {{ item.outputs.length }} outputs</small>
+          <div class="source-strip">{{ item.source.label }}</div>
         </div>
         <button class="add" (click)="add(item)">+</button>
       </article>
@@ -58,82 +64,89 @@
     </section>
 
     <section class="composition panel">
-      <div class="panel-title">COMPOSITION <span>compose heterogeneous capabilities into one deliverable solution</span></div>
+      <div class="panel-title">COMPOSITION <span>dependency flow from left to right</span></div>
       <div class="empty-composition" *ngIf="!orderedBlocks.length">
         Add Building Blocks from the catalog to start composing a solution.
       </div>
 
-      <article class="bb" *ngFor="let block of orderedBlocks">
-        <div class="bb-head">
-          <button class="chevron" (click)="toggleExpanded(block)" [attr.aria-label]="block.expanded ? 'Collapse building block' : 'Expand building block'">{{ block.expanded ? '▾' : '▸' }}</button>
-          <div class="bb-icon">{{ definition(block).icon }}</div>
-          <div class="bb-title">
-            <strong>{{ definition(block).name }}</strong>
-            <p>{{ definition(block).description }}</p>
-            <div class="badges">
-              <span class="badge source"><span>{{ definition(block).source.icon }}</span>{{ definition(block).source.label }}</span>
-              <span class="badge implementation"><span>{{ definition(block).implementation.icon }}</span>{{ definition(block).implementation.label }}</span>
-            </div>
-          </div>
-          <div class="bb-actions">
-            <button (click)="move(block,-1)">↑</button><button (click)="move(block,1)">↓</button><button (click)="remove(block)">×</button>
-          </div>
-        </div>
+      <div class="dag-scroll" *ngIf="orderedBlocks.length">
+        <div class="dag-columns">
+          <section class="dag-column" *ngFor="let column of compositionColumns; let columnIndex = index">
+            <div class="dag-column-label">{{ columnIndex === 0 ? 'ROOT CAPABILITIES' : 'DEPENDENCY LEVEL ' + columnIndex }}</div>
+            <article class="bb compact" *ngFor="let block of column">
+              <div class="source-strip card-source">{{ definition(block).source.label }}</div>
 
-        <div class="io-overview">
-          <div class="io-overview-group">
-            <span class="io-label">↑ {{ definition(block).inputs.length }} INPUTS</span>
-            <span class="parameter-chip" *ngFor="let input of definition(block).inputs">{{ input.name }}</span>
-          </div>
-          <div class="io-overview-group outputs-overview">
-            <span class="io-label">↓ {{ definition(block).outputs.length }} OUTPUTS</span>
-            <span class="parameter-chip" *ngFor="let output of definition(block).outputs">{{ output.name }}</span>
-          </div>
-        </div>
+              <div class="bb-head compact-head">
+                <div class="bb-icon">{{ definition(block).icon }}</div>
+                <div class="bb-title">
+                  <strong>{{ definition(block).name }}</strong>
+                  <p>{{ definition(block).description }}</p>
+                </div>
+                <div class="bb-actions">
+                  <button (click)="toggleExpanded(block)" [attr.aria-label]="block.expanded ? 'Collapse building block' : 'Expand building block'">{{ block.expanded ? '▴' : '▾' }}</button>
+                  <button (click)="remove(block)">×</button>
+                </div>
+              </div>
 
-        <div class="bb-details" *ngIf="block.expanded">
-          <div class="section-caption">INPUT BINDINGS</div>
-          <div class="parameter" *ngFor="let input of definition(block).inputs">
-            <div class="parameter-info">
-              <div class="parameter-name">{{ input.name }} <small>{{ input.type }}</small></div>
-              <p>{{ input.description }}</p>
-            </div>
-            <div class="binding-controls">
-              <select [ngModel]="block.inputs[input.name]?.source" (ngModelChange)="setSource(block,input.name,$event)">
-                <option value="meshstack-context">meshStack context</option>
-                <option value="static">Static value</option>
-                <option value="user">User input</option>
-                <option value="platform-operator">Platform operator input</option>
-                <option value="bb-output">Building Block output</option>
-              </select>
-              <input *ngIf="block.inputs[input.name]?.source === 'user' || block.inputs[input.name]?.source === 'platform-operator'" [(ngModel)]="block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="parameter name">
-              <input *ngIf="block.inputs[input.name]?.source === 'static'" [(ngModel)]="block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="fixed value">
-              <select *ngIf="block.inputs[input.name]?.source === 'meshstack-context'" [(ngModel)]="block.inputs[input.name].contextKey" (ngModelChange)="changed()">
-                <option value="workspace_identifier">Workspace Identifier</option>
-                <option value="project_identifier">Project Identifier</option>
-                <option value="platform_identifier">Full Platform Identifier</option>
-                <option value="tenant_id">Platform Tenant ID</option>
-                <option value="meshstack_tenant_uuid">meshStack Tenant UUID</option>
-                <option value="user_permissions">User Permissions</option>
-                <option value="author">Author</option>
-                <option value="tags">Tags</option>
-              </select>
-              <select *ngIf="block.inputs[input.name]?.source === 'bb-output'" [ngModel]="(block.inputs[input.name].sourceBlockId || '') + '|' + (block.inputs[input.name].sourceOutput || '')" (ngModelChange)="setOutputReference(block,input.name,$event)">
-                <option value="|" disabled>Select Building Block output…</option>
-                <option *ngFor="let candidate of outputCandidates(block)" [value]="candidate.block.instanceId + '|' + candidate.output">{{ candidate.label }} → {{ candidate.output }}</option>
-              </select>
-            </div>
-          </div>
+              <div class="bb-anatomy">
+                <div class="automation-cell" [title]="definition(block).implementation.label">
+                  <img *ngIf="implementationIconUrl(definition(block).implementation.type) as iconUrl; else manualIcon" [src]="iconUrl" [alt]="definition(block).implementation.label">
+                  <ng-template #manualIcon><span>⚙</span></ng-template>
+                </div>
+                <div class="io-stack">
+                  <div class="io-row">
+                    <span class="io-label">INPUTS</span>
+                    <span class="parameter-chip" *ngFor="let input of definition(block).inputs">{{ input.name }}</span>
+                  </div>
+                  <div class="io-row output-row-compact">
+                    <span class="io-label">OUTPUTS</span>
+                    <span class="parameter-chip" *ngFor="let output of definition(block).outputs">{{ output.name }}</span>
+                  </div>
+                </div>
+              </div>
 
-          <div class="section-caption outputs-caption">OUTPUTS</div>
-          <div class="output-row" *ngFor="let output of definition(block).outputs">
-            <div class="parameter-info">
-              <div class="parameter-name">{{ output.name }} <small>{{ output.type }}</small></div>
-              <p>{{ output.description }}</p>
-            </div>
-          </div>
+              <div class="dependency-hint" *ngIf="dependencyNames(block).length">
+                ← from {{ dependencyNames(block).join(', ') }}
+              </div>
+
+              <div class="bb-details compact-details" *ngIf="block.expanded">
+                <div class="section-caption">INPUT BINDINGS</div>
+                <div class="parameter" *ngFor="let input of definition(block).inputs">
+                  <div class="parameter-info">
+                    <div class="parameter-name">{{ input.name }} <small>{{ input.type }}</small></div>
+                    <p>{{ input.description }}</p>
+                  </div>
+                  <div class="binding-controls">
+                    <select [ngModel]="block.inputs[input.name]?.source" (ngModelChange)="setSource(block,input.name,$event)">
+                      <option value="meshstack-context">meshStack context</option>
+                      <option value="static">Static value</option>
+                      <option value="user">User input</option>
+                      <option value="platform-operator">Platform operator input</option>
+                      <option value="bb-output">Building Block output</option>
+                    </select>
+                    <input *ngIf="block.inputs[input.name]?.source === 'user' || block.inputs[input.name]?.source === 'platform-operator'" [(ngModel)]="block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="parameter name">
+                    <input *ngIf="block.inputs[input.name]?.source === 'static'" [(ngModel)]="block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="fixed value">
+                    <select *ngIf="block.inputs[input.name]?.source === 'meshstack-context'" [(ngModel)]="block.inputs[input.name].contextKey" (ngModelChange)="changed()">
+                      <option value="workspace_identifier">Workspace Identifier</option>
+                      <option value="project_identifier">Project Identifier</option>
+                      <option value="platform_identifier">Full Platform Identifier</option>
+                      <option value="tenant_id">Platform Tenant ID</option>
+                      <option value="meshstack_tenant_uuid">meshStack Tenant UUID</option>
+                      <option value="user_permissions">User Permissions</option>
+                      <option value="author">Author</option>
+                      <option value="tags">Tags</option>
+                    </select>
+                    <select *ngIf="block.inputs[input.name]?.source === 'bb-output'" [ngModel]="(block.inputs[input.name].sourceBlockId || '') + '|' + (block.inputs[input.name].sourceOutput || '')" (ngModelChange)="setOutputReference(block,input.name,$event)">
+                      <option value="|" disabled>Select Building Block output…</option>
+                      <option *ngFor="let candidate of outputCandidates(block)" [value]="candidate.block.instanceId + '|' + candidate.output">{{ candidate.label }} → {{ candidate.output }}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </section>
         </div>
-      </article>
+      </div>
     </section>
 
     <section class="code panel">
