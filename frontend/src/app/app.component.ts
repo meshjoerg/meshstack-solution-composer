@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CATALOG } from './catalog';
-import { Blueprint, BlueprintBlock, BuildingBlockDefinition, InputBinding, InputSourceType } from './models';
+import { Blueprint, BlueprintBlock, BuildingBlockDefinition, ImplementationType, InputBinding, InputSourceType } from './models';
 import { PersistenceService } from './persistence.service';
 import { generateTerraform } from './terraform';
 
@@ -14,6 +14,7 @@ import { generateTerraform } from './terraform';
 })
 export class AppComponent implements OnInit {
   private persistence = inject(PersistenceService);
+  private changeDetector = inject(ChangeDetectorRef);
   catalog = CATALOG;
   query = '';
   saved = true;
@@ -33,6 +34,10 @@ export class AppComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.blueprint = (await this.persistence.loadLast()) ?? this.newBlueprint();
+    // IndexedDB resolves outside Angular change detection in some browser/runtime
+    // combinations. Render the restored blueprint immediately instead of waiting
+    // for the next user interaction to trigger a view update.
+    this.changeDetector.detectChanges();
   }
 
   get filteredCatalog(): BuildingBlockDefinition[] {
@@ -54,6 +59,17 @@ export class AppComponent implements OnInit {
 
   definition(block: BlueprintBlock): BuildingBlockDefinition {
     return this.catalog.find(x => x.id === block.definitionId)!;
+  }
+
+  implementationIconUrl(type: ImplementationType): string | null {
+    const slugs: Partial<Record<ImplementationType, string>> = {
+      'opentofu': 'opentofu',
+      'github-actions': 'github',
+      'gitlab-cicd': 'gitlab',
+      'azure-devops': 'azuredevops'
+    };
+    const slug = slugs[type];
+    return slug ? `https://cdn.simpleicons.org/${slug}` : null;
   }
 
   add(definition: BuildingBlockDefinition): void {
