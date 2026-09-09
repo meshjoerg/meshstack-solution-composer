@@ -5,6 +5,7 @@ function terraformValue(binding: InputBinding, definitions: Map<string, Building
     case 'static':
       return JSON.stringify(binding.value ?? '');
     case 'user':
+    case 'platform-operator':
       return `var.${binding.value}`;
     case 'meshstack-context':
       return `local.meshstack_context.${binding.contextKey}`;
@@ -28,7 +29,9 @@ export function generateTerraform(blueprint: Blueprint, catalog: BuildingBlockDe
     if (!definition) continue;
     for (const input of definition.inputs) {
       const binding = block.inputs[input.name];
-      if (binding?.source === 'user' && binding.value) variables.set(binding.value, input.type);
+      if ((binding?.source === 'user' || binding?.source === 'platform-operator') && binding.value) {
+        variables.set(binding.value, input.type);
+      }
     }
   }
 
