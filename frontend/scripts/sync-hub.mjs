@@ -135,10 +135,8 @@ function isGenericHeading(value) {
 }
 
 function titleFromReadme(readme, moduleName) {
-  const headings = [...readme.matchAll(/^#{1,3}\s+(.+)$/gm)]
-    .map(match => match[1].trim())
-    .filter(heading => heading.length < 100 && !isGenericHeading(heading));
-  return headings[0] || titleCase(moduleName);
+  const h1 = readme.match(/^#\s+(.+)$/m)?.[1]?.trim();
+  return h1 && h1.length < 100 && !isGenericHeading(h1) ? h1 : titleCase(moduleName);
 }
 
 function descriptionFromReadme(readme) {
@@ -147,7 +145,7 @@ function descriptionFromReadme(readme) {
     if (!line || line.startsWith('#') || line.startsWith('![') || line.startsWith('[![') || line.startsWith('<')) continue;
     if (/^(?:---+|___+|\*\*\*+)$/.test(line)) continue;
     if (/^\|.*\|$/.test(line)) continue;
-    if (/^[A-Za-z0-9_-]+:\s*$/.test(line)) continue;
+    if (/^[A-Za-z0-9_.-]+\s*:\s*.*$/.test(line)) continue;
     const cleaned = line.replace(/^>\s*/, '').trim();
     if (!cleaned || cleaned === '---') continue;
     return cleaned.slice(0, 240);
