@@ -345,6 +345,128 @@
   padding: 6px 7px;
 }
 
+/* Polished, shared disclosure language. */
+.chevron-icon {
+  width: 9px;
+  height: 9px;
+  display: inline-block;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transform-origin: 50% 50%;
+  transition: transform .12s ease;
+}
+
+.chevron-icon.open,
+.catalog-details[open] .catalog-toggle-chevron .chevron-icon {
+  transform: rotate(225deg);
+}
+
+.platform-group > summary::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin: 0 10px 0 2px;
+  border-right: 2px solid #87929b;
+  border-bottom: 2px solid #87929b;
+  transform: rotate(-45deg);
+  transition: transform .12s ease;
+}
+
+.platform-group[open] > summary::before {
+  content: '';
+  transform: rotate(45deg);
+}
+
+.catalog-details-summary {
+  display: grid;
+  grid-template-columns: 24px minmax(72px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.catalog-toggle-chevron {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #60707b;
+}
+
+.catalog-details-summary:hover .catalog-toggle-chevron {
+  background: rgba(96,112,123,.08);
+  border: 0;
+}
+
+.catalog-counts {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+  white-space: normal;
+}
+
+.catalog-count-unit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.catalog-counts i {
+  margin: 0;
+}
+
+.output-flow-chip {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+}
+
+.output-chip-arrow {
+  flex: 0 0 auto;
+  color: #687b64;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.bb-actions .chevron-button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #586974;
+  box-shadow: none;
+}
+
+.bb-actions .chevron-button:hover {
+  background: rgba(88,105,116,.09);
+}
+
+.toggle-chevron {
+  width: 28px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #60707b;
+}
+
+.batch-editor-toggle:hover .toggle-chevron {
+  background: rgba(96,112,123,.08);
+}
+
 @media (max-width: 1050px) {
   .workspace {
     grid-template-columns: 310px minmax(620px, 1fr);
