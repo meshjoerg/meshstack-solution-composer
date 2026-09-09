@@ -243,8 +243,9 @@ export class AppComponent implements OnInit {
       block.expanded = false;
       this.activeInputByBlock.delete(block.instanceId);
     } else {
-      block.expanded = true;
-      this.activeInputByBlock.delete(block.instanceId);
+      const firstInput = this.definition(block).inputs?.[0];
+      block.expanded = !!firstInput;
+      if (firstInput) this.activeInputByBlock.set(block.instanceId, firstInput.name);
     }
     void this.changed();
   }
@@ -257,27 +258,27 @@ export class AppComponent implements OnInit {
   }
 
   visibleInputs(block: BlueprintBlock): ParameterDefinition[] {
+    if (!block.expanded) return [];
     const inputs = this.definition(block).inputs ?? [];
-    const active = this.activeInputByBlock.get(block.instanceId);
-    return active ? inputs.filter(input => input.name === active) : inputs;
+    const active = this.activeInputByBlock.get(block.instanceId) ?? inputs[0]?.name;
+    return active ? inputs.filter(input => input.name === active) : [];
   }
 
   binding(block: BlueprintBlock, inputName: string): InputBinding {
-    this.ensureBlockBindings(block);
-    return block.inputs[inputName];
+    return block.inputs?.[inputName] ?? this.defaultUserBinding(block, inputName);
   }
 
   setSource(block: BlueprintBlock, input: string, source: InputSourceType): void {
     this.ensureBlockBindings(block);
-    const current = this.binding(block, input);
+    const current = block.inputs[input];
     const next: InputBinding = { source };
 
     if (source === 'user' || source === 'platform-operator') {
-      next.value = current.value || `${block.definitionId.replace(/-/g, '_')}_${input}`;
+      next.value = current?.value || `${block.definitionId.replace(/-/g, '_')}_${input}`;
     } else if (source === 'static') {
-      next.value = current.value || '';
+      next.value = current?.value || '';
     } else if (source === 'meshstack-context') {
-      next.contextKey = current.contextKey || 'project_identifier';
+      next.contextKey = current?.contextKey || 'project_identifier';
     } else if (source === 'bb-output') {
       const candidate = this.outputCandidates(block)[0];
       next.sourceBlockId = candidate?.block.instanceId;
@@ -289,12 +290,14 @@ export class AppComponent implements OnInit {
   }
 
   setBindingValue(block: BlueprintBlock, inputName: string, value: string): void {
-    this.binding(block, inputName).value = value;
+    this.ensureBlockBindings(block);
+    block.inputs[inputName].value = value;
     void this.changed();
   }
 
   setContextKey(block: BlueprintBlock, inputName: string, contextKey: string): void {
-    const current = this.binding(block, inputName);
+    this.ensureBlockBindings(block);
+    const current = block.inputs[inputName];
     block.inputs[inputName] = { ...current, source: 'meshstack-context', contextKey };
     void this.changed();
   }
@@ -315,6 +318,7 @@ export class AppComponent implements OnInit {
   }
 
   setOutputReference(block: BlueprintBlock, input: string, value: string): void {
+    this.ensureBlockBindings(block);
     const [sourceBlockId, sourceOutput] = value.split('|');
     block.inputs[input] = { source: 'bb-output', sourceBlockId, sourceOutput };
     void this.changed();
