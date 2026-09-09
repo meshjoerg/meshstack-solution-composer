@@ -12,10 +12,15 @@ interface ContextGroup {
   items: string[];
 }
 
-interface ContextPill {
-  blockName: string;
-  parameter: string;
+interface UserOperatorParameter {
+  name: string;
   operator: boolean;
+}
+
+interface UserOperatorGroup {
+  blockId: string;
+  blockName: string;
+  items: UserOperatorParameter[];
 }
 
 interface CatalogGroup {
@@ -82,12 +87,19 @@ export class AppComponent implements OnInit {
       this.ensureBlockBindings(block);
       for (const [inputName, binding] of Object.entries(block.inputs)) {
         if (binding.source === 'bb-output' && (!binding.sourceBlockId || !knownInstances.has(binding.sourceBlockId))) {
-          block.inputs[inputName] = this.defaultUserBinding(block, inputName);
+          block.inputs[inputName] = this.defaultUnassignedBinding();
+          continue;
+        }
+
+        // Migration from the prototype's former implicit User Input default.
+        const formerImplicitValue = `${block.definitionId.replace(/-/g, '_')}_${inputName}`;
+        if (binding.source === 'user' && binding.value === formerImplicitValue) {
+          block.inputs[inputName] = this.defaultUnassignedBinding();
         }
       }
     });
 
-    this.blueprint = restored;
+    this.blueprint = { ...restored, blocks: [...restored.blocks] };
     this.rebuildDerivedStructure();
     this.refreshTerraform();
     await this.persistence.save(this.blueprint);
@@ -115,17 +127,14 @@ export class AppComponent implements OnInit {
     return [...this.blueprint.blocks].sort((a, b) => a.order - b.order);
   }
 
-  get userOperatorPills(): ContextPill[] {
-    const result: ContextPill[] = [];
-    for (const block of this.orderedBlocks) {
+  get userOperatorGroups(): UserOperatorGroup[] {
+    return this.orderedBlocks.flatMap(block => {
       const definition = this.definition(block);
-      for (const [parameter, binding] of Object.entries(block.inputs ?? {})) {
-        if (binding.source === 'user' || binding.source === 'platform-operator') {
-          result.push({ blockName: definition.name, parameter, operator: binding.source === 'platform-operator' });
-        }
-      }
-    }
-    return result;
+      const items = Object.entries(block.inputs ?? {})
+        .filter(([, binding]) => binding.source === 'user' || binding.source === 'platform-operator')
+        .map(([name, binding]) => ({ name, operator: binding.source === 'platform-operator' }));
+      return items.length ? [{ blockId: block.definitionId, blockName: definition.name, items }] : [];
+    });
   }
 
   get staticGroups(): ContextGroup[] {
@@ -159,23 +168,26 @@ export class AppComponent implements OnInit {
       inputs: {}
     };
     this.ensureBlockBindings(block);
-    this.blueprint.blocks.push(block);
+    this.blueprint = { ...this.blueprint, blocks: [...this.blueprint.blocks, block] };
     this.structureChanged();
   }
 
   remove(block: BlueprintBlock): void {
     this.activeInputByBlock.delete(block.instanceId);
-    this.blueprint.blocks = this.blueprint.blocks.filter(candidate => candidate.instanceId !== block.instanceId);
+    const remainingBlocks = this.blueprint.blocks
+      .filter(candidate => candidate.instanceId !== block.instanceId)
+      .map(candidate => ({ ...candidate, inputs: { ...candidate.inputs } }));
 
-    for (const remaining of this.blueprint.blocks) {
+    for (const remaining of remainingBlocks) {
       for (const [inputName, binding] of Object.entries(remaining.inputs ?? {})) {
         if (binding.source === 'bb-output' && binding.sourceBlockId === block.instanceId) {
-          remaining.inputs[inputName] = this.defaultUserBinding(remaining, inputName);
+          remaining.inputs[inputName] = this.defaultUnassignedBinding();
         }
       }
     }
 
-    this.normalizeOrder();
+    remainingBlocks.sort((a, b) => a.order - b.order).forEach((candidate, index) => candidate.order = index);
+    this.blueprint = { ...this.blueprint, blocks: remainingBlocks };
     this.structureChanged();
   }
 
@@ -184,6 +196,7 @@ export class AppComponent implements OnInit {
     if (block.expanded) {
       block.expanded = false;
       this.activeInputByBlock.delete(block.instanceId);
+      this.changeDetector.detectChanges();
       return;
     }
 
@@ -191,12 +204,14 @@ export class AppComponent implements OnInit {
     if (!firstInput) return;
     block.expanded = true;
     this.activeInputByBlock.set(block.instanceId, firstInput.name);
+    this.changeDetector.detectChanges();
   }
 
   editInput(block: BlueprintBlock, inputName: string): void {
     this.ensureBlockBindings(block);
     block.expanded = true;
     this.activeInputByBlock.set(block.instanceId, inputName);
+    this.changeDetector.detectChanges();
   }
 
   isActiveInput(block: BlueprintBlock, inputName: string): boolean {
@@ -280,11 +295,13 @@ export class AppComponent implements OnInit {
   async changed(): Promise<void> {
     this.refreshTerraform();
     await this.persist();
+    this.changeDetector.detectChanges();
   }
 
   private structureChanged(): void {
     this.rebuildDerivedStructure();
     this.refreshTerraform();
+    this.changeDetector.detectChanges();
     void this.persist();
   }
 
@@ -296,6 +313,7 @@ export class AppComponent implements OnInit {
     this.saved = false;
     await this.persistence.save(this.blueprint);
     this.saved = true;
+    this.changeDetector.detectChanges();
   }
 
   private rebuildDerivedStructure(): void {
@@ -399,15 +417,13 @@ export class AppComponent implements OnInit {
     for (const input of definitionInputs) {
       const existing = block.inputs[input.name];
       if (!existing?.source) {
-        block.inputs[input.name] = this.defaultUserBinding(block, input.name);
-      } else if ((existing.source === 'user' || existing.source === 'platform-operator') && !existing.value) {
-        existing.value = `${block.definitionId.replace(/-/g, '_')}_${input.name}`;
+        block.inputs[input.name] = this.defaultUnassignedBinding();
       }
     }
   }
 
-  private defaultUserBinding(block: BlueprintBlock, inputName: string): InputBinding {
-    return { source: 'user', value: `${block.definitionId.replace(/-/g, '_')}_${inputName}` };
+  private defaultUnassignedBinding(): InputBinding {
+    return { source: 'unassigned' };
   }
 
   private contextGroups(sources: InputSourceType[]): ContextGroup[] {
@@ -419,10 +435,6 @@ export class AppComponent implements OnInit {
 
       return items.length ? [{ blockId: block.definitionId, blockName: this.definition(block).name, items }] : [];
     });
-  }
-
-  private normalizeOrder(): void {
-    this.orderedBlocks.forEach((block, index) => block.order = index);
   }
 
   private newBlueprint(): Blueprint {
