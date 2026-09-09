@@ -1,6 +1,7 @@
+import { HUB_CATALOG } from './hub-catalog.generated';
 import { BuildingBlockDefinition } from './models';
 
-export const CATALOG: BuildingBlockDefinition[] = [
+const DEMO_CATALOG: BuildingBlockDefinition[] = [
   {
     id: 'network', name: 'Network Foundation', icon: '🕸️',
     source: { type: 'hub', label: 'meshStack Hub', icon: '◆' },
@@ -82,3 +83,7 @@ export const CATALOG: BuildingBlockDefinition[] = [
     outputs: [{ name: 'dashboard_url', type: 'string', description: 'URL of the operational dashboard.' }]
   }
 ];
+
+// Once sync-hub.mjs generated a real Hub snapshot, it becomes the catalog.
+// The demo catalog remains a fallback so the app also starts offline.
+export const CATALOG: BuildingBlockDefinition[] = HUB_CATALOG.length ? HUB_CATALOG : DEMO_CATALOG;
