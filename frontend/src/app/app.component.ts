@@ -12,6 +12,14 @@ interface ContextGroup {
   items: string[];
 }
 
+interface CompositionPlacement {
+  block: BlueprintBlock;
+  row: number;
+  column: number;
+  primaryParent?: string;
+  secondaryParents: string[];
+}
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -52,30 +60,74 @@ export class AppComponent implements OnInit {
     return [...this.blueprint.blocks].sort((a, b) => a.order - b.order);
   }
 
-  get compositionColumns(): BlueprintBlock[][] {
+  /**
+   * Lane layout: a single dependency chain stays on one horizontal row.
+   * Roots start new rows. Children follow the row of their primary parent.
+   * For merge nodes, the deepest/earliest parent defines the primary lane and
+   * additional parents are surfaced explicitly on the card instead of routing
+   * graph lines across the canvas.
+   */
+  get compositionPlacements(): CompositionPlacement[] {
     const blocks = this.orderedBlocks;
-    const byId = new Map(blocks.map(block => [block.instanceId, block]));
     const depths = new Map<string, number>();
+    const order = new Map(blocks.map((block, index) => [block.instanceId, index]));
 
     const depthOf = (block: BlueprintBlock, visiting = new Set<string>()): number => {
       const cached = depths.get(block.instanceId);
       if (cached !== undefined) return cached;
       if (visiting.has(block.instanceId)) return 0;
 
-      const nextVisiting = new Set(visiting);
-      nextVisiting.add(block.instanceId);
-      const parents = this.parentBlocks(block).filter(parent => byId.has(parent.instanceId));
-      const depth = parents.length
-        ? Math.max(...parents.map(parent => depthOf(parent, nextVisiting))) + 1
-        : 0;
+      const next = new Set(visiting);
+      next.add(block.instanceId);
+      const parents = this.parentBlocks(block);
+      const depth = parents.length ? Math.max(...parents.map(parent => depthOf(parent, next))) + 1 : 0;
       depths.set(block.instanceId, depth);
       return depth;
     };
 
-    const maxDepth = blocks.reduce((max, block) => Math.max(max, depthOf(block)), 0);
-    const columns = Array.from({ length: maxDepth + 1 }, () => [] as BlueprintBlock[]);
-    blocks.forEach(block => columns[depthOf(block)].push(block));
-    return columns;
+    blocks.forEach(block => depthOf(block));
+    const processOrder = [...blocks].sort((a, b) => {
+      const depthDelta = (depths.get(a.instanceId) ?? 0) - (depths.get(b.instanceId) ?? 0);
+      return depthDelta || (order.get(a.instanceId) ?? 0) - (order.get(b.instanceId) ?? 0);
+    });
+
+    const laneByBlock = new Map<string, number>();
+    const occupied = new Set<string>();
+    const placements: CompositionPlacement[] = [];
+    let nextRootLane = 0;
+
+    for (const block of processOrder) {
+      const parents = this.parentBlocks(block).sort((a, b) => {
+        const depthDelta = (depths.get(b.instanceId) ?? 0) - (depths.get(a.instanceId) ?? 0);
+        return depthDelta || (order.get(a.instanceId) ?? 0) - (order.get(b.instanceId) ?? 0);
+      });
+      const column = depths.get(block.instanceId) ?? 0;
+
+      let row: number;
+      if (!parents.length) {
+        row = nextRootLane++;
+      } else {
+        const primary = parents[0];
+        row = laneByBlock.get(primary.instanceId) ?? nextRootLane++;
+        while (occupied.has(`${row}:${column}`)) row = nextRootLane++;
+      }
+
+      laneByBlock.set(block.instanceId, row);
+      occupied.add(`${row}:${column}`);
+      placements.push({
+        block,
+        row,
+        column,
+        primaryParent: parents[0] ? this.definition(parents[0]).name : undefined,
+        secondaryParents: parents.slice(1).map(parent => this.definition(parent).name)
+      });
+    }
+
+    return placements.sort((a, b) => a.row - b.row || a.column - b.column);
+  }
+
+  get maxCompositionColumn(): number {
+    return this.compositionPlacements.reduce((max, placement) => Math.max(max, placement.column), 0);
   }
 
   get terraform(): string { return generateTerraform(this.blueprint, this.catalog); }
@@ -114,10 +166,6 @@ export class AppComponent implements OnInit {
         .map(binding => binding.sourceBlockId as string)
     );
     return this.orderedBlocks.filter(candidate => ids.has(candidate.instanceId));
-  }
-
-  dependencyNames(block: BlueprintBlock): string[] {
-    return this.parentBlocks(block).map(parent => this.definition(parent).name);
   }
 
   add(definition: BuildingBlockDefinition): void {
@@ -186,8 +234,6 @@ export class AppComponent implements OnInit {
     block.inputs[input] = { source: 'bb-output', sourceBlockId, sourceOutput };
     void this.changed();
   }
-
-  qualified(block: BlueprintBlock, input: string): string { return `${block.definitionId}.${input}`; }
 
   async changed(): Promise<void> {
     this.saved = false;
