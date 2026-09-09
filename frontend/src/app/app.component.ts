@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CATALOG } from './catalog';
-import { Blueprint, BlueprintBlock, BuildingBlockDefinition, ImplementationType, InputBinding, InputSourceType, ParameterDefinition } from './models';
+import { Blueprint, BlueprintBlock, BuildingBlockDefinition, ImplementationType, InputBinding, InputSourceType } from './models';
 import { PersistenceService } from './persistence.service';
 import { generateTerraform } from './terraform';
 
@@ -25,7 +25,6 @@ interface CatalogGroup {
 
 interface CompositionPlacement {
   block: BlueprintBlock;
-  definition: BuildingBlockDefinition;
   row: number;
   column: number;
   primaryParent?: string;
@@ -47,9 +46,14 @@ interface OutputCandidate {
 export class AppComponent implements OnInit {
   private persistence = inject(PersistenceService);
   private changeDetector = inject(ChangeDetectorRef);
-  private readonly definitionMap = new Map(CATALOG.map(item => [item.id, item]));
+  private activeInputByBlock = new Map<string, string>();
+  private definitionMap = new Map(CATALOG.map(item => [item.id, item]));
+  private outputCandidateCache = new Map<string, OutputCandidate[]>();
 
-  readonly catalog = CATALOG;
+  catalog = CATALOG;
+  query = '';
+  saved = true;
+
   readonly meshStackDefaults = [
     'Workspace Identifier',
     'Project Identifier',
@@ -61,30 +65,14 @@ export class AppComponent implements OnInit {
     'Tags'
   ];
 
-  query = '';
-  saved = true;
   blueprint: Blueprint = this.newBlueprint();
-
-  catalogGroups: CatalogGroup[] = [];
-  orderedBlocks: BlueprintBlock[] = [];
   compositionPlacements: CompositionPlacement[] = [];
   maxCompositionColumn = 0;
-  userOperatorPills: ContextPill[] = [];
-  staticGroups: ContextGroup[] = [];
-  terraformCode = '';
-
-  editorBlock: BlueprintBlock | null = null;
-  editorDefinition: BuildingBlockDefinition | null = null;
-  editorInput: ParameterDefinition | null = null;
-  editorOutputCandidates: OutputCandidate[] = [];
-  editorSource: InputSourceType = 'user';
-  editorValue = '';
-  editorContextKey = 'project_identifier';
-  editorOutputReference = '|';
 
   async ngOnInit(): Promise<void> {
     const restored = (await this.persistence.loadLast()) ?? this.newBlueprint();
-    restored.blocks = (restored.blocks ?? []).filter(block => this.definitionMap.has(block.definitionId));
+    const knownDefinitions = new Set(this.catalog.map(item => item.id));
+    restored.blocks = (restored.blocks ?? []).filter(block => knownDefinitions.has(block.definitionId));
     const knownInstances = new Set(restored.blocks.map(block => block.instanceId));
 
     restored.blocks.forEach((block, index) => {
@@ -99,14 +87,57 @@ export class AppComponent implements OnInit {
     });
 
     this.blueprint = restored;
-    this.refreshCatalogGroups();
-    this.refreshDerivedState();
+    this.rebuildDerivedStructure();
     await this.persistence.save(this.blueprint);
     this.changeDetector.detectChanges();
   }
 
-  onQueryChange(): void {
-    this.refreshCatalogGroups();
+  get filteredCatalog(): BuildingBlockDefinition[] {
+    const q = this.query.trim().toLowerCase();
+    return q ? this.catalog.filter(x => `${x.name} ${x.description} ${x.platform ?? ''}`.toLowerCase().includes(q)) : this.catalog;
+  }
+
+  get catalogGroups(): CatalogGroup[] {
+    const groups = new Map<string, BuildingBlockDefinition[]>();
+    for (const item of this.filteredCatalog) {
+      const platform = item.platform?.trim() || 'Other';
+      if (!groups.has(platform)) groups.set(platform, []);
+      groups.get(platform)!.push(item);
+    }
+    return [...groups.entries()]
+      .map(([platform, items]) => ({ platform, items: [...items].sort((a, b) => a.name.localeCompare(b.name)) }))
+      .sort((a, b) => a.platform.localeCompare(b.platform));
+  }
+
+  get orderedBlocks(): BlueprintBlock[] {
+    return [...this.blueprint.blocks].sort((a, b) => a.order - b.order);
+  }
+
+  get terraform(): string {
+    return generateTerraform(this.blueprint, this.catalog);
+  }
+
+  get userOperatorPills(): ContextPill[] {
+    const result: ContextPill[] = [];
+    for (const block of this.orderedBlocks) {
+      const definition = this.definition(block);
+      for (const [parameter, binding] of Object.entries(block.inputs ?? {})) {
+        if (binding.source === 'user' || binding.source === 'platform-operator') {
+          result.push({ blockName: definition.name, parameter, operator: binding.source === 'platform-operator' });
+        }
+      }
+    }
+    return result;
+  }
+
+  get staticGroups(): ContextGroup[] {
+    return this.contextGroups(['static']);
+  }
+
+  definition(block: BlueprintBlock): BuildingBlockDefinition {
+    const definition = this.definitionMap.get(block.definitionId);
+    if (!definition) throw new Error(`Unknown Building Block definition: ${block.definitionId}`);
+    return definition;
   }
 
   implementationIconUrl(type: ImplementationType): string | null {
@@ -131,11 +162,11 @@ export class AppComponent implements OnInit {
     };
     this.ensureBlockBindings(block);
     this.blueprint.blocks.push(block);
-    this.commitState();
+    this.structureChanged();
   }
 
   remove(block: BlueprintBlock): void {
-    if (this.editorBlock?.instanceId === block.instanceId) this.closeEditor();
+    this.activeInputByBlock.delete(block.instanceId);
     this.blueprint.blocks = this.blueprint.blocks.filter(candidate => candidate.instanceId !== block.instanceId);
 
     for (const remaining of this.blueprint.blocks) {
@@ -147,103 +178,83 @@ export class AppComponent implements OnInit {
     }
 
     this.normalizeOrder();
-    this.commitState();
+    this.structureChanged();
   }
 
-  toggleEditor(block: BlueprintBlock): void {
-    if (this.editorBlock?.instanceId === block.instanceId) {
-      this.closeEditor();
+  toggleExpanded(block: BlueprintBlock): void {
+    this.ensureBlockBindings(block);
+    if (block.expanded) {
+      block.expanded = false;
+      this.activeInputByBlock.delete(block.instanceId);
       return;
     }
-    const definition = this.definitionMap.get(block.definitionId);
-    const firstInput = definition?.inputs?.[0];
-    if (!definition || !firstInput) return;
-    this.openEditor(block, firstInput);
+
+    const firstInput = this.definition(block).inputs?.[0];
+    if (!firstInput) return;
+    block.expanded = true;
+    this.activeInputByBlock.set(block.instanceId, firstInput.name);
   }
 
   editInput(block: BlueprintBlock, inputName: string): void {
-    const definition = this.definitionMap.get(block.definitionId);
-    const input = definition?.inputs?.find(candidate => candidate.name === inputName);
-    if (!definition || !input) return;
-    this.openEditor(block, input);
+    this.ensureBlockBindings(block);
+    block.expanded = true;
+    this.activeInputByBlock.set(block.instanceId, inputName);
   }
 
-  selectEditorInputFromEvent(event: Event): void {
-    const inputName = (event.target as HTMLSelectElement).value;
-    if (!this.editorBlock || !this.editorDefinition) return;
-    const input = this.editorDefinition.inputs.find(candidate => candidate.name === inputName);
-    if (!input) return;
-    this.openEditor(this.editorBlock, input);
+  isActiveInput(block: BlueprintBlock, inputName: string): boolean {
+    if (!block.expanded) return false;
+    const active = this.activeInputByBlock.get(block.instanceId) ?? this.definition(block).inputs?.[0]?.name;
+    return active === inputName;
   }
 
-  closeEditor(): void {
-    this.editorBlock = null;
-    this.editorDefinition = null;
-    this.editorInput = null;
-    this.editorOutputCandidates = [];
-    this.editorSource = 'user';
-    this.editorValue = '';
-    this.editorContextKey = 'project_identifier';
-    this.editorOutputReference = '|';
-  }
-
-  setEditorSourceFromEvent(event: Event): void {
-    const source = (event.target as HTMLSelectElement).value as InputSourceType;
-    if (!this.editorBlock || !this.editorInput) return;
-    this.ensureBlockBindings(this.editorBlock);
-
-    const inputName = this.editorInput.name;
-    const current = this.editorBlock.inputs[inputName];
+  setSource(block: BlueprintBlock, input: string, source: InputSourceType): void {
+    this.ensureBlockBindings(block);
+    const current = block.inputs[input];
     const next: InputBinding = { source };
 
     if (source === 'user' || source === 'platform-operator') {
-      next.value = current?.value || `${this.editorBlock.definitionId.replace(/-/g, '_')}_${inputName}`;
+      next.value = current?.value || `${block.definitionId.replace(/-/g, '_')}_${input}`;
     } else if (source === 'static') {
       next.value = current?.value || '';
     } else if (source === 'meshstack-context') {
       next.contextKey = current?.contextKey || 'project_identifier';
     } else if (source === 'bb-output') {
-      const candidate = this.editorOutputCandidates[0];
+      const candidate = this.outputCandidates(block)[0];
       next.sourceBlockId = candidate?.block.instanceId;
       next.sourceOutput = candidate?.output;
     }
 
-    this.editorBlock.inputs[inputName] = next;
-    this.loadEditorBinding(next);
-    this.commitState();
+    block.inputs[input] = next;
+    this.structureChanged();
   }
 
-  setEditorValueFromEvent(event: Event): void {
-    if (!this.editorBlock || !this.editorInput) return;
-    const value = (event.target as HTMLInputElement).value;
-    const binding = this.editorBlock.inputs[this.editorInput.name];
-    binding.value = value;
-    this.editorValue = value;
-    this.commitState();
-  }
-
-  setEditorContextFromEvent(event: Event): void {
-    if (!this.editorBlock || !this.editorInput) return;
-    const contextKey = (event.target as HTMLSelectElement).value;
-    const binding: InputBinding = { source: 'meshstack-context', contextKey };
-    this.editorBlock.inputs[this.editorInput.name] = binding;
-    this.loadEditorBinding(binding);
-    this.commitState();
-  }
-
-  setEditorOutputFromEvent(event: Event): void {
-    if (!this.editorBlock || !this.editorInput) return;
-    const value = (event.target as HTMLSelectElement).value;
-    const [sourceBlockId, sourceOutput] = value.split('|');
-    const binding: InputBinding = { source: 'bb-output', sourceBlockId, sourceOutput };
-    this.editorBlock.inputs[this.editorInput.name] = binding;
-    this.loadEditorBinding(binding);
-    this.commitState();
-  }
-
-  onMetadataChanged(): void {
-    this.terraformCode = generateTerraform(this.blueprint, this.catalog);
+  setBindingValue(block: BlueprintBlock, inputName: string, value: string): void {
+    this.ensureBlockBindings(block);
+    block.inputs[inputName].value = value;
     void this.persist();
+  }
+
+  setContextKey(block: BlueprintBlock, inputName: string, contextKey: string): void {
+    this.ensureBlockBindings(block);
+    const current = block.inputs[inputName];
+    block.inputs[inputName] = { ...current, source: 'meshstack-context', contextKey };
+    void this.persist();
+  }
+
+  outputReferenceValue(block: BlueprintBlock, inputName: string): string {
+    const current = block.inputs[inputName];
+    return `${current?.sourceBlockId ?? ''}|${current?.sourceOutput ?? ''}`;
+  }
+
+  outputCandidates(current: BlueprintBlock): OutputCandidate[] {
+    return this.outputCandidateCache.get(current.instanceId) ?? [];
+  }
+
+  setOutputReference(block: BlueprintBlock, input: string, value: string): void {
+    this.ensureBlockBindings(block);
+    const [sourceBlockId, sourceOutput] = value.split('|');
+    block.inputs[input] = { source: 'bb-output', sourceBlockId, sourceOutput };
+    this.structureChanged();
   }
 
   trackPlacement(_index: number, placement: CompositionPlacement): string {
@@ -254,190 +265,24 @@ export class AppComponent implements OnInit {
     return item.id;
   }
 
-  trackParameter(_index: number, item: ParameterDefinition): string {
+  trackCatalogGroup(_index: number, group: CatalogGroup): string {
+    return group.platform;
+  }
+
+  trackParameter(_index: number, item: { name: string }): string {
     return item.name;
   }
 
-  private openEditor(block: BlueprintBlock, input: ParameterDefinition): void {
-    this.ensureBlockBindings(block);
-    const definition = this.definitionMap.get(block.definitionId);
-    if (!definition) return;
-
-    this.editorBlock = block;
-    this.editorDefinition = definition;
-    this.editorInput = input;
-    this.editorOutputCandidates = this.buildOutputCandidates(block);
-    this.loadEditorBinding(block.inputs[input.name]);
+  trackOutputCandidate(_index: number, item: OutputCandidate): string {
+    return `${item.block.instanceId}:${item.output}`;
   }
 
-  private loadEditorBinding(binding: InputBinding): void {
-    this.editorSource = binding.source;
-    this.editorValue = binding.value ?? '';
-    this.editorContextKey = binding.contextKey ?? 'project_identifier';
-    this.editorOutputReference = `${binding.sourceBlockId ?? ''}|${binding.sourceOutput ?? ''}`;
+  async changed(): Promise<void> {
+    await this.persist();
   }
 
-  private buildOutputCandidates(current: BlueprintBlock): OutputCandidate[] {
-    return this.orderedBlocks
-      .filter(block => block.instanceId !== current.instanceId)
-      .flatMap(block => {
-        const definition = this.definitionMap.get(block.definitionId);
-        return (definition?.outputs ?? []).map(output => ({
-          block,
-          label: definition!.name,
-          output: output.name
-        }));
-      });
-  }
-
-  private refreshCatalogGroups(): void {
-    const q = this.query.trim().toLowerCase();
-    const filtered = q
-      ? this.catalog.filter(item => `${item.name} ${item.description} ${item.platform ?? ''}`.toLowerCase().includes(q))
-      : this.catalog;
-
-    const groups = new Map<string, BuildingBlockDefinition[]>();
-    for (const item of filtered) {
-      const platform = item.platform?.trim() || 'Other';
-      if (!groups.has(platform)) groups.set(platform, []);
-      groups.get(platform)!.push(item);
-    }
-
-    this.catalogGroups = [...groups.entries()]
-      .map(([platform, items]) => ({
-        platform,
-        items: [...items].sort((a, b) => a.name.localeCompare(b.name))
-      }))
-      .sort((a, b) => a.platform.localeCompare(b.platform));
-  }
-
-  private refreshDerivedState(): void {
-    this.orderedBlocks = [...this.blueprint.blocks].sort((a, b) => a.order - b.order);
-    this.rebuildCompositionPlacements();
-    this.rebuildContexts();
-    this.terraformCode = generateTerraform(this.blueprint, this.catalog);
-
-    if (this.editorBlock && this.editorInput) {
-      const currentBlock = this.blueprint.blocks.find(block => block.instanceId === this.editorBlock!.instanceId);
-      if (!currentBlock) {
-        this.closeEditor();
-      } else {
-        this.editorBlock = currentBlock;
-        this.editorDefinition = this.definitionMap.get(currentBlock.definitionId) ?? null;
-        const binding = currentBlock.inputs[this.editorInput.name];
-        if (binding) this.loadEditorBinding(binding);
-        this.editorOutputCandidates = this.buildOutputCandidates(currentBlock);
-      }
-    }
-  }
-
-  private rebuildCompositionPlacements(): void {
-    const blocks = this.orderedBlocks;
-    const blockById = new Map(blocks.map(block => [block.instanceId, block]));
-    const order = new Map(blocks.map((block, index) => [block.instanceId, index]));
-    const parentIds = new Map<string, string[]>();
-
-    for (const block of blocks) {
-      const ids = [...new Set(
-        Object.values(block.inputs ?? {})
-          .filter(binding => binding.source === 'bb-output' && binding.sourceBlockId && blockById.has(binding.sourceBlockId))
-          .map(binding => binding.sourceBlockId as string)
-      )];
-      parentIds.set(block.instanceId, ids);
-    }
-
-    const depthMemo = new Map<string, number>();
-    const depthOf = (blockId: string, visiting = new Set<string>()): number => {
-      const cached = depthMemo.get(blockId);
-      if (cached !== undefined) return cached;
-      if (visiting.has(blockId)) return 0;
-      const parents = parentIds.get(blockId) ?? [];
-      if (!parents.length) {
-        depthMemo.set(blockId, 0);
-        return 0;
-      }
-      const next = new Set(visiting);
-      next.add(blockId);
-      const depth = Math.max(...parents.map(parentId => depthOf(parentId, next))) + 1;
-      depthMemo.set(blockId, depth);
-      return depth;
-    };
-
-    blocks.forEach(block => depthOf(block.instanceId));
-    const processOrder = [...blocks].sort((a, b) => {
-      const depthDelta = (depthMemo.get(a.instanceId) ?? 0) - (depthMemo.get(b.instanceId) ?? 0);
-      return depthDelta || (order.get(a.instanceId) ?? 0) - (order.get(b.instanceId) ?? 0);
-    });
-
-    const laneByBlock = new Map<string, number>();
-    const occupied = new Set<string>();
-    const placements: CompositionPlacement[] = [];
-    let nextRootLane = 0;
-
-    for (const block of processOrder) {
-      const parents = (parentIds.get(block.instanceId) ?? [])
-        .map(id => blockById.get(id))
-        .filter((candidate): candidate is BlueprintBlock => !!candidate)
-        .sort((a, b) => {
-          const depthDelta = (depthMemo.get(b.instanceId) ?? 0) - (depthMemo.get(a.instanceId) ?? 0);
-          return depthDelta || (order.get(a.instanceId) ?? 0) - (order.get(b.instanceId) ?? 0);
-        });
-
-      const column = depthMemo.get(block.instanceId) ?? 0;
-      let row: number;
-      if (!parents.length) {
-        row = nextRootLane++;
-      } else {
-        row = laneByBlock.get(parents[0].instanceId) ?? nextRootLane++;
-        while (occupied.has(`${row}:${column}`)) row = nextRootLane++;
-      }
-
-      const definition = this.definitionMap.get(block.definitionId);
-      if (!definition) continue;
-      laneByBlock.set(block.instanceId, row);
-      occupied.add(`${row}:${column}`);
-      placements.push({
-        block,
-        definition,
-        row,
-        column,
-        primaryParent: parents[0] ? this.definitionMap.get(parents[0].definitionId)?.name : undefined,
-        secondaryParents: parents.slice(1).map(parent => this.definitionMap.get(parent.definitionId)?.name).filter((name): name is string => !!name)
-      });
-    }
-
-    this.compositionPlacements = placements.sort((a, b) => a.row - b.row || a.column - b.column);
-    this.maxCompositionColumn = this.compositionPlacements.reduce((max, placement) => Math.max(max, placement.column), 0);
-  }
-
-  private rebuildContexts(): void {
-    const pills: ContextPill[] = [];
-    const staticGroups: ContextGroup[] = [];
-
-    for (const block of this.orderedBlocks) {
-      const definition = this.definitionMap.get(block.definitionId);
-      if (!definition) continue;
-      const staticItems: string[] = [];
-
-      for (const [parameter, binding] of Object.entries(block.inputs ?? {})) {
-        if (binding.source === 'user' || binding.source === 'platform-operator') {
-          pills.push({ blockName: definition.name, parameter, operator: binding.source === 'platform-operator' });
-        } else if (binding.source === 'static') {
-          staticItems.push(`${parameter} = ${binding.value || '…'}`);
-        }
-      }
-
-      if (staticItems.length) {
-        staticGroups.push({ blockId: block.definitionId, blockName: definition.name, items: staticItems });
-      }
-    }
-
-    this.userOperatorPills = pills;
-    this.staticGroups = staticGroups;
-  }
-
-  private commitState(): void {
-    this.refreshDerivedState();
+  private structureChanged(): void {
+    this.rebuildDerivedStructure();
     void this.persist();
   }
 
@@ -447,17 +292,105 @@ export class AppComponent implements OnInit {
     this.saved = true;
   }
 
+  private rebuildDerivedStructure(): void {
+    this.rebuildOutputCandidates();
+    this.rebuildCompositionLayout();
+  }
+
+  private rebuildOutputCandidates(): void {
+    const blocks = this.orderedBlocks;
+    this.outputCandidateCache = new Map();
+    for (const current of blocks) {
+      const candidates = blocks
+        .filter(block => block.instanceId !== current.instanceId)
+        .flatMap(block => {
+          const definition = this.definition(block);
+          return (definition.outputs ?? []).map(output => ({ block, label: definition.name, output: output.name }));
+        });
+      this.outputCandidateCache.set(current.instanceId, candidates);
+    }
+  }
+
+  private rebuildCompositionLayout(): void {
+    const blocks = this.orderedBlocks;
+    const depths = new Map<string, number>();
+    const order = new Map(blocks.map((block, index) => [block.instanceId, index]));
+
+    const depthOf = (block: BlueprintBlock, visiting = new Set<string>()): number => {
+      const cached = depths.get(block.instanceId);
+      if (cached !== undefined) return cached;
+      if (visiting.has(block.instanceId)) return 0;
+
+      const next = new Set(visiting);
+      next.add(block.instanceId);
+      const parents = this.parentBlocks(block);
+      const depth = parents.length ? Math.max(...parents.map(parent => depthOf(parent, next))) + 1 : 0;
+      depths.set(block.instanceId, depth);
+      return depth;
+    };
+
+    blocks.forEach(block => depthOf(block));
+    const processOrder = [...blocks].sort((a, b) => {
+      const depthDelta = (depths.get(a.instanceId) ?? 0) - (depths.get(b.instanceId) ?? 0);
+      return depthDelta || (order.get(a.instanceId) ?? 0) - (order.get(b.instanceId) ?? 0);
+    });
+
+    const laneByBlock = new Map<string, number>();
+    const occupied = new Set<string>();
+    const placements: CompositionPlacement[] = [];
+    let nextRootLane = 0;
+
+    for (const block of processOrder) {
+      const parents = this.parentBlocks(block).sort((a, b) => {
+        const depthDelta = (depths.get(b.instanceId) ?? 0) - (depths.get(a.instanceId) ?? 0);
+        return depthDelta || (order.get(a.instanceId) ?? 0) - (order.get(b.instanceId) ?? 0);
+      });
+      const column = depths.get(block.instanceId) ?? 0;
+
+      let row: number;
+      if (!parents.length) {
+        row = nextRootLane++;
+      } else {
+        row = laneByBlock.get(parents[0].instanceId) ?? nextRootLane++;
+        while (occupied.has(`${row}:${column}`)) row = nextRootLane++;
+      }
+
+      laneByBlock.set(block.instanceId, row);
+      occupied.add(`${row}:${column}`);
+      placements.push({
+        block,
+        row,
+        column,
+        primaryParent: parents[0] ? this.definition(parents[0]).name : undefined,
+        secondaryParents: parents.slice(1).map(parent => this.definition(parent).name)
+      });
+    }
+
+    this.compositionPlacements = placements.sort((a, b) => a.row - b.row || a.column - b.column);
+    this.maxCompositionColumn = this.compositionPlacements.reduce((max, placement) => Math.max(max, placement.column), 0);
+  }
+
+  private parentBlocks(block: BlueprintBlock): BlueprintBlock[] {
+    const ids = new Set(
+      Object.values(block.inputs ?? {})
+        .filter(binding => binding.source === 'bb-output' && binding.sourceBlockId)
+        .map(binding => binding.sourceBlockId as string)
+    );
+    return this.orderedBlocks.filter(candidate => ids.has(candidate.instanceId));
+  }
+
   private ensureBlockBindings(block: BlueprintBlock): void {
     const definition = this.definitionMap.get(block.definitionId);
     if (!definition) return;
     block.inputs = block.inputs ?? {};
 
-    const validNames = new Set((definition.inputs ?? []).map(input => input.name));
+    const definitionInputs = definition.inputs ?? [];
+    const validNames = new Set(definitionInputs.map(input => input.name));
     for (const existingName of Object.keys(block.inputs)) {
       if (!validNames.has(existingName)) delete block.inputs[existingName];
     }
 
-    for (const input of definition.inputs ?? []) {
+    for (const input of definitionInputs) {
       const existing = block.inputs[input.name];
       if (!existing?.source) {
         block.inputs[input.name] = this.defaultUserBinding(block, input.name);
@@ -471,10 +404,19 @@ export class AppComponent implements OnInit {
     return { source: 'user', value: `${block.definitionId.replace(/-/g, '_')}_${inputName}` };
   }
 
+  private contextGroups(sources: InputSourceType[]): ContextGroup[] {
+    const allowed = new Set<InputSourceType>(sources);
+    return this.orderedBlocks.flatMap(block => {
+      const items = Object.entries(block.inputs ?? {})
+        .filter(([, binding]) => allowed.has(binding.source))
+        .map(([name, binding]) => binding.source === 'static' ? `${name} = ${binding.value || '…'}` : name);
+
+      return items.length ? [{ blockId: block.definitionId, blockName: this.definition(block).name, items }] : [];
+    });
+  }
+
   private normalizeOrder(): void {
-    [...this.blueprint.blocks]
-      .sort((a, b) => a.order - b.order)
-      .forEach((block, index) => block.order = index);
+    this.orderedBlocks.forEach((block, index) => block.order = index);
   }
 
   private newBlueprint(): Blueprint {
