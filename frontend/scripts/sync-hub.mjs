@@ -12,6 +12,35 @@ const repoUrl = 'https://github.com/meshcloud/meshstack-hub.git';
 const githubBase = 'https://github.com/meshcloud/meshstack-hub/tree/main';
 const rawBase = 'https://raw.githubusercontent.com/meshcloud/meshstack-hub/main';
 
+const publishedFallback = {
+  stackit: {
+    gitrepository: {
+      name: 'STACKIT Git Repository',
+      description: 'Provisions a Git repository on STACKIT Git (Forgejo) with optional clone_addr support for one-time cloning from any public Git URL.'
+    },
+    network: {
+      name: 'STACKIT Network',
+      description: 'Creates a routed STACKIT network inside an existing STACKIT project.'
+    },
+    networkarea: {
+      name: 'STACKIT Network Area',
+      description: 'Creates a STACKIT network area with a configurable IPv4 address plan for network-segmented projects.'
+    },
+    project: {
+      name: 'STACKIT Project',
+      description: 'Creates a new STACKIT project and manages user access permissions with configurable role-based access control.'
+    },
+    projectstarterkit: {
+      name: 'STACKIT Project Starterkit',
+      description: 'Creates a meshProject with a STACKIT project tenant in a selected landing zone, and grants the creator Project Admin.'
+    },
+    storagebucket: {
+      name: 'STACKIT Storage Bucket',
+      description: 'Provisions an S3-compatible Object Storage bucket on STACKIT with access credentials.'
+    }
+  }
+};
+
 function runGit(args) {
   execFileSync('git', args, { stdio: 'ignore' });
 }
@@ -154,6 +183,106 @@ function descriptionFromReadme(readme) {
   return '';
 }
 
+function stripInlineMarkdown(value) {
+  return value
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[`*_]/g, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeCatalogKey(value, platformSlug = '') {
+  const ignored = new Set([
+    ...platformSlug.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean),
+    'building', 'block', 'buildingblock', 'definition', 'definitions', 'module', 'terraform', 'opentofu'
+  ]);
+
+  return stripInlineMarkdown(value)
+    .toLowerCase()
+    .replace(/starter\s+kit/g, 'starterkit')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(/\s+/)
+    .filter(token => token && !ignored.has(token))
+    .join('');
+}
+
+function parsePublishedCatalog(markdown, platformSlug) {
+  if (!/building\s+block\s+definitions/i.test(markdown)) return [];
+
+  const lines = markdown.split(/\r?\n/);
+  const entries = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const heading = lines[i].match(/^#{2,4}\s+(.+)$/);
+    if (!heading) continue;
+
+    const title = stripInlineMarkdown(heading[1]);
+    if (!title || /building\s+block\s+definitions/i.test(title)) continue;
+
+    const paragraph = [];
+    let started = false;
+    for (let j = i + 1; j < lines.length; j++) {
+      const line = lines[j].trim();
+      if (/^#{1,4}\s+/.test(line)) break;
+      if (!line) {
+        if (started) break;
+        continue;
+      }
+      if (line.startsWith('![') || line.startsWith('[![') || line.startsWith('<')) continue;
+      if (/^(?:---+|___+|\*\*\*+)$/.test(line)) continue;
+      if (/^\|.*\|$/.test(line)) continue;
+      if (/^[-*+]\s+/.test(line) && !started) continue;
+      paragraph.push(stripInlineMarkdown(line));
+      started = true;
+    }
+
+    const description = paragraph.join(' ').replace(/\s+/g, ' ').trim();
+    const key = normalizeCatalogKey(title, platformSlug);
+    if (key && description) entries.push({ key, name: title, description: description.slice(0, 320) });
+  }
+
+  return entries;
+}
+
+function findPublishedCatalog(platformDir, platformSlug) {
+  if (!existsSync(platformDir)) return { authoritative: false, entries: [] };
+
+  const markdownFiles = walk(platformDir)
+    .filter(path => /\.md$/i.test(path))
+    .filter(path => relative(platformDir, path).split(sep).length <= 2);
+
+  const candidates = markdownFiles.map(path => {
+    const content = readFileSync(path, 'utf8');
+    const entries = parsePublishedCatalog(content, platformSlug);
+    const score = (/building\s+block\s+definitions/i.test(content) ? 100 : 0)
+      + (basename(path).toLowerCase() === 'readme.md' ? 10 : 0)
+      + entries.length;
+    return { path, content, entries, score };
+  }).filter(candidate => candidate.entries.length);
+
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+  if (best) return { authoritative: /building\s+block\s+definitions/i.test(best.content), entries: best.entries };
+
+  const fallbackEntries = publishedFallback[platformSlug];
+  if (fallbackEntries) {
+    return {
+      authoritative: true,
+      entries: Object.entries(fallbackEntries).map(([key, value]) => ({ key, ...value }))
+    };
+  }
+
+  return { authoritative: false, entries: [] };
+}
+
+function findPublishedEntry(catalog, moduleName, platformSlug) {
+  const key = normalizeCatalogKey(moduleName, platformSlug);
+  return catalog.entries.find(entry => entry.key === key)
+    ?? catalog.entries.find(entry => entry.key.includes(key) || key.includes(entry.key));
+}
+
 function findLogo(buildingBlockRoot, moduleDir) {
   const files = [...walk(buildingBlockRoot), ...walk(moduleDir)]
     .filter(path => /(?:logo|icon)\.(?:png|svg|jpg|jpeg|webp)$/i.test(basename(path)));
@@ -194,20 +323,30 @@ function generateCatalog() {
       continue;
     }
 
-    // Prefer the variables.tf closest to the buildingblock root when a module
-    // contains multiple implementation subdirectories.
     const existingDepth = relative(existing.buildingBlockRoot, existing.variableFile).split(sep).length;
     const candidateDepth = relative(entry.buildingBlockRoot, entry.variableFile).split(sep).length;
     if (candidateDepth < existingDepth) entriesByModule.set(key, entry);
   }
 
+  const platformCatalogCache = new Map();
+  const getPlatformCatalog = platformSlug => {
+    if (!platformCatalogCache.has(platformSlug)) {
+      platformCatalogCache.set(platformSlug, findPublishedCatalog(join(modulesDir, platformSlug), platformSlug));
+    }
+    return platformCatalogCache.get(platformSlug);
+  };
+
   const items = [...entriesByModule.values()].map(entry => {
     const { variableFile, implementationDir, moduleDir, buildingBlockRoot, moduleParts } = entry;
-    const relModule = relative(repoDir, moduleDir).split(sep).join('/');
     const relImplementation = relative(repoDir, implementationDir).split(sep).join('/');
-    const platform = moduleParts[0] ? titleCase(moduleParts[0]) : 'meshStack Hub';
+    const platformSlug = moduleParts[0] ?? '';
+    const platform = platformSlug ? titleCase(platformSlug) : 'meshStack Hub';
     const moduleName = basename(moduleDir);
     const id = moduleParts.join('-').replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+
+    const publishedCatalog = getPlatformCatalog(platformSlug);
+    const publishedEntry = findPublishedEntry(publishedCatalog, moduleName, platformSlug);
+    if (publishedCatalog.authoritative && !publishedEntry) return null;
 
     const variables = readFileSync(variableFile, 'utf8');
     const outputs = readFirstExisting([
@@ -234,8 +373,8 @@ function generateCatalog() {
       ...(terraformDescription(body) ? { description: terraformDescription(body) } : {})
     }));
 
-    const name = titleFromReadme(readme, moduleName);
-    const description = descriptionFromReadme(readme) || `${platform} Building Block from the meshStack Hub.`;
+    const name = publishedEntry?.name ?? titleFromReadme(readme, moduleName);
+    const description = publishedEntry?.description ?? descriptionFromReadme(readme) ?? `${platform} Building Block from the meshStack Hub.`;
     const logo = findLogo(buildingBlockRoot, moduleDir);
     const logoUrl = logo ? `${rawBase}/${relative(repoDir, logo).split(sep).join('/')}` : undefined;
 
@@ -252,7 +391,7 @@ function generateCatalog() {
       inputs,
       outputs: outputDefs
     };
-  }).sort((a, b) => `${a.platform} ${a.name}`.localeCompare(`${b.platform} ${b.name}`));
+  }).filter(Boolean).sort((a, b) => `${a.platform} ${a.name}`.localeCompare(`${b.platform} ${b.name}`));
 
   const ts = `// AUTO-GENERATED by scripts/sync-hub.mjs. Do not edit manually.\n` +
     `import { BuildingBlockDefinition } from './models';\n\n` +
