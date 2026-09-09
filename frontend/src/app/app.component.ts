@@ -6,6 +6,12 @@ import { Blueprint, BlueprintBlock, BuildingBlockDefinition, ImplementationType,
 import { PersistenceService } from './persistence.service';
 import { generateTerraform } from './terraform';
 
+interface ContextGroup {
+  blockId: string;
+  blockName: string;
+  items: string[];
+}
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -46,11 +52,6 @@ export class AppComponent implements OnInit {
     return [...this.blueprint.blocks].sort((a, b) => a.order - b.order);
   }
 
-  /**
-   * Compact layered DAG layout: roots are placed in the first column and each
-   * dependent Building Block is placed one column after its deepest parent.
-   * The input binding remains the source of truth; the layout is only a view.
-   */
   get compositionColumns(): BlueprintBlock[][] {
     const blocks = this.orderedBlocks;
     const byId = new Map(blocks.map(block => [block.instanceId, block]));
@@ -79,11 +80,17 @@ export class AppComponent implements OnInit {
 
   get terraform(): string { return generateTerraform(this.blueprint, this.catalog); }
 
-  get userAndOperatorContext(): string[] {
-    return [...this.contextEntries('user'), ...this.contextEntries('platform-operator')];
+  get userOperatorGroups(): ContextGroup[] {
+    return this.contextGroups(['user', 'platform-operator']);
   }
-  get staticContext(): string[] { return this.contextEntries('static'); }
-  get meshStackBindings(): string[] { return this.contextEntries('meshstack-context'); }
+
+  get staticGroups(): ContextGroup[] {
+    return this.contextGroups(['static']);
+  }
+
+  get meshStackBindingGroups(): ContextGroup[] {
+    return this.contextGroups(['meshstack-context']);
+  }
 
   definition(block: BlueprintBlock): BuildingBlockDefinition {
     return this.catalog.find(x => x.id === block.definitionId)!;
@@ -188,15 +195,24 @@ export class AppComponent implements OnInit {
     this.saved = true;
   }
 
-  private contextEntries(source: InputSourceType): string[] {
-    return this.orderedBlocks.flatMap(block => Object.entries(block.inputs)
-      .filter(([, binding]) => binding.source === source)
-      .map(([name, binding]) => {
-        const key = this.qualified(block, name);
-        if (source === 'static') return `${key} = ${binding.value || '…'}`;
-        if (source === 'meshstack-context') return `${key} ← ${binding.contextKey}`;
-        return `${key}${source === 'platform-operator' ? ' · operator' : ''}`;
-      }));
+  private contextGroups(sources: InputSourceType[]): ContextGroup[] {
+    const allowed = new Set<InputSourceType>(sources);
+    return this.orderedBlocks.flatMap(block => {
+      const items = Object.entries(block.inputs)
+        .filter(([, binding]) => allowed.has(binding.source))
+        .map(([name, binding]) => {
+          if (binding.source === 'static') return `${name} = ${binding.value || '…'}`;
+          if (binding.source === 'meshstack-context') return `${name} ← ${binding.contextKey}`;
+          if (binding.source === 'platform-operator') return `${name} · operator`;
+          return name;
+        });
+
+      return items.length ? [{
+        blockId: block.definitionId,
+        blockName: this.definition(block).name,
+        items
+      }] : [];
+    });
   }
 
   private normalizeOrder(): void {
