@@ -25,6 +25,9 @@ export interface BuildingBlockDefinition {
   name: string;
   description: string;
   icon: string;
+  logoUrl?: string;
+  platform?: string;
+  codeUrl?: string;
   source: BuildingBlockSource;
   implementation: BuildingBlockImplementation;
   inputs: ParameterDefinition[];
