@@ -76,13 +76,16 @@ export class AppComponent implements OnInit {
   editorBlock: BlueprintBlock | null = null;
   editorDefinition: BuildingBlockDefinition | null = null;
   editorInput: ParameterDefinition | null = null;
-  editorBinding: InputBinding | null = null;
   editorOutputCandidates: OutputCandidate[] = [];
+  editorSource: InputSourceType = 'user';
+  editorValue = '';
+  editorContextKey = 'project_identifier';
+  editorOutputReference = '|';
 
   async ngOnInit(): Promise<void> {
     const restored = (await this.persistence.loadLast()) ?? this.newBlueprint();
-    const knownInstances = new Set((restored.blocks ?? []).map(block => block.instanceId));
     restored.blocks = (restored.blocks ?? []).filter(block => this.definitionMap.has(block.definitionId));
+    const knownInstances = new Set(restored.blocks.map(block => block.instanceId));
 
     restored.blocks.forEach((block, index) => {
       block.order = index;
@@ -165,7 +168,8 @@ export class AppComponent implements OnInit {
     this.openEditor(block, input);
   }
 
-  selectEditorInput(inputName: string): void {
+  selectEditorInputFromEvent(event: Event): void {
+    const inputName = (event.target as HTMLSelectElement).value;
     if (!this.editorBlock || !this.editorDefinition) return;
     const input = this.editorDefinition.inputs.find(candidate => candidate.name === inputName);
     if (!input) return;
@@ -176,13 +180,18 @@ export class AppComponent implements OnInit {
     this.editorBlock = null;
     this.editorDefinition = null;
     this.editorInput = null;
-    this.editorBinding = null;
     this.editorOutputCandidates = [];
+    this.editorSource = 'user';
+    this.editorValue = '';
+    this.editorContextKey = 'project_identifier';
+    this.editorOutputReference = '|';
   }
 
-  setEditorSource(source: InputSourceType): void {
+  setEditorSourceFromEvent(event: Event): void {
+    const source = (event.target as HTMLSelectElement).value as InputSourceType;
     if (!this.editorBlock || !this.editorInput) return;
     this.ensureBlockBindings(this.editorBlock);
+
     const inputName = this.editorInput.name;
     const current = this.editorBlock.inputs[inputName];
     const next: InputBinding = { source };
@@ -200,39 +209,53 @@ export class AppComponent implements OnInit {
     }
 
     this.editorBlock.inputs[inputName] = next;
-    this.editorBinding = next;
+    this.loadEditorBinding(next);
     this.commitState();
   }
 
-  setEditorValue(value: string): void {
-    if (!this.editorBlock || !this.editorInput || !this.editorBinding) return;
-    this.editorBinding.value = value;
-    this.editorBlock.inputs[this.editorInput.name] = this.editorBinding;
-    this.commitState();
-  }
-
-  setEditorContextKey(contextKey: string): void {
-    if (!this.editorBlock || !this.editorInput || !this.editorBinding) return;
-    this.editorBinding = { ...this.editorBinding, source: 'meshstack-context', contextKey };
-    this.editorBlock.inputs[this.editorInput.name] = this.editorBinding;
-    this.commitState();
-  }
-
-  setEditorOutputReference(value: string): void {
+  setEditorValueFromEvent(event: Event): void {
     if (!this.editorBlock || !this.editorInput) return;
-    const [sourceBlockId, sourceOutput] = value.split('|');
-    this.editorBinding = { source: 'bb-output', sourceBlockId, sourceOutput };
-    this.editorBlock.inputs[this.editorInput.name] = this.editorBinding;
+    const value = (event.target as HTMLInputElement).value;
+    const binding = this.editorBlock.inputs[this.editorInput.name];
+    binding.value = value;
+    this.editorValue = value;
     this.commitState();
   }
 
-  editorOutputReferenceValue(): string {
-    return `${this.editorBinding?.sourceBlockId ?? ''}|${this.editorBinding?.sourceOutput ?? ''}`;
+  setEditorContextFromEvent(event: Event): void {
+    if (!this.editorBlock || !this.editorInput) return;
+    const contextKey = (event.target as HTMLSelectElement).value;
+    const binding: InputBinding = { source: 'meshstack-context', contextKey };
+    this.editorBlock.inputs[this.editorInput.name] = binding;
+    this.loadEditorBinding(binding);
+    this.commitState();
+  }
+
+  setEditorOutputFromEvent(event: Event): void {
+    if (!this.editorBlock || !this.editorInput) return;
+    const value = (event.target as HTMLSelectElement).value;
+    const [sourceBlockId, sourceOutput] = value.split('|');
+    const binding: InputBinding = { source: 'bb-output', sourceBlockId, sourceOutput };
+    this.editorBlock.inputs[this.editorInput.name] = binding;
+    this.loadEditorBinding(binding);
+    this.commitState();
   }
 
   onMetadataChanged(): void {
     this.terraformCode = generateTerraform(this.blueprint, this.catalog);
     void this.persist();
+  }
+
+  trackPlacement(_index: number, placement: CompositionPlacement): string {
+    return placement.block.instanceId;
+  }
+
+  trackDefinition(_index: number, item: BuildingBlockDefinition): string {
+    return item.id;
+  }
+
+  trackParameter(_index: number, item: ParameterDefinition): string {
+    return item.name;
   }
 
   private openEditor(block: BlueprintBlock, input: ParameterDefinition): void {
@@ -243,8 +266,15 @@ export class AppComponent implements OnInit {
     this.editorBlock = block;
     this.editorDefinition = definition;
     this.editorInput = input;
-    this.editorBinding = block.inputs[input.name];
     this.editorOutputCandidates = this.buildOutputCandidates(block);
+    this.loadEditorBinding(block.inputs[input.name]);
+  }
+
+  private loadEditorBinding(binding: InputBinding): void {
+    this.editorSource = binding.source;
+    this.editorValue = binding.value ?? '';
+    this.editorContextKey = binding.contextKey ?? 'project_identifier';
+    this.editorOutputReference = `${binding.sourceBlockId ?? ''}|${binding.sourceOutput ?? ''}`;
   }
 
   private buildOutputCandidates(current: BlueprintBlock): OutputCandidate[] {
@@ -294,7 +324,8 @@ export class AppComponent implements OnInit {
       } else {
         this.editorBlock = currentBlock;
         this.editorDefinition = this.definitionMap.get(currentBlock.definitionId) ?? null;
-        this.editorBinding = currentBlock.inputs[this.editorInput.name] ?? null;
+        const binding = currentBlock.inputs[this.editorInput.name];
+        if (binding) this.loadEditorBinding(binding);
         this.editorOutputCandidates = this.buildOutputCandidates(currentBlock);
       }
     }
