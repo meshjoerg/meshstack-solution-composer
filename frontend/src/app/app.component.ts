@@ -18,6 +18,17 @@ export class AppComponent implements OnInit {
   query = '';
   saved = true;
 
+  readonly meshStackDefaults = [
+    'Workspace Identifier',
+    'Project Identifier',
+    'Full Platform Identifier',
+    'Platform Tenant ID',
+    'meshStack Tenant UUID',
+    'User Permissions',
+    'Author',
+    'Tags'
+  ];
+
   blueprint: Blueprint = this.newBlueprint();
 
   async ngOnInit(): Promise<void> {
@@ -35,9 +46,11 @@ export class AppComponent implements OnInit {
 
   get terraform(): string { return generateTerraform(this.blueprint, this.catalog); }
 
-  get userContext(): string[] { return this.contextEntries('user'); }
+  get userAndOperatorContext(): string[] {
+    return [...this.contextEntries('user'), ...this.contextEntries('platform-operator')];
+  }
   get staticContext(): string[] { return this.contextEntries('static'); }
-  get meshStackContext(): string[] { return this.contextEntries('meshstack-context'); }
+  get meshStackBindings(): string[] { return this.contextEntries('meshstack-context'); }
 
   definition(block: BlueprintBlock): BuildingBlockDefinition {
     return this.catalog.find(x => x.id === block.definitionId)!;
@@ -81,7 +94,9 @@ export class AppComponent implements OnInit {
   setSource(block: BlueprintBlock, input: string, source: InputSourceType): void {
     const current = block.inputs[input] ?? { source };
     block.inputs[input] = { source };
-    if (source === 'user') block.inputs[input].value = current.value || `${block.definitionId.replace(/-/g, '_')}_${input}`;
+    if (source === 'user' || source === 'platform-operator') {
+      block.inputs[input].value = current.value || `${block.definitionId.replace(/-/g, '_')}_${input}`;
+    }
     if (source === 'static') block.inputs[input].value = current.value || '';
     if (source === 'meshstack-context') block.inputs[input].contextKey = current.contextKey || 'project_identifier';
     if (source === 'bb-output') {
@@ -123,7 +138,7 @@ export class AppComponent implements OnInit {
         const key = this.qualified(block, name);
         if (source === 'static') return `${key} = ${binding.value || '…'}`;
         if (source === 'meshstack-context') return `${key} ← ${binding.contextKey}`;
-        return key;
+        return `${key}${source === 'platform-operator' ? ' · operator' : ''}`;
       }));
   }
 
