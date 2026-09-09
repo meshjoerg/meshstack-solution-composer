@@ -68,6 +68,7 @@ export class AppComponent implements OnInit {
   blueprint: Blueprint = this.newBlueprint();
   compositionPlacements: CompositionPlacement[] = [];
   maxCompositionColumn = 0;
+  terraformCode = '';
 
   async ngOnInit(): Promise<void> {
     const restored = (await this.persistence.loadLast()) ?? this.newBlueprint();
@@ -88,6 +89,7 @@ export class AppComponent implements OnInit {
 
     this.blueprint = restored;
     this.rebuildDerivedStructure();
+    this.refreshTerraform();
     await this.persistence.save(this.blueprint);
     this.changeDetector.detectChanges();
   }
@@ -111,10 +113,6 @@ export class AppComponent implements OnInit {
 
   get orderedBlocks(): BlueprintBlock[] {
     return [...this.blueprint.blocks].sort((a, b) => a.order - b.order);
-  }
-
-  get terraform(): string {
-    return generateTerraform(this.blueprint, this.catalog);
   }
 
   get userOperatorPills(): ContextPill[] {
@@ -231,6 +229,7 @@ export class AppComponent implements OnInit {
   setBindingValue(block: BlueprintBlock, inputName: string, value: string): void {
     this.ensureBlockBindings(block);
     block.inputs[inputName].value = value;
+    this.refreshTerraform();
     void this.persist();
   }
 
@@ -238,6 +237,7 @@ export class AppComponent implements OnInit {
     this.ensureBlockBindings(block);
     const current = block.inputs[inputName];
     block.inputs[inputName] = { ...current, source: 'meshstack-context', contextKey };
+    this.refreshTerraform();
     void this.persist();
   }
 
@@ -278,12 +278,18 @@ export class AppComponent implements OnInit {
   }
 
   async changed(): Promise<void> {
+    this.refreshTerraform();
     await this.persist();
   }
 
   private structureChanged(): void {
     this.rebuildDerivedStructure();
+    this.refreshTerraform();
     void this.persist();
+  }
+
+  private refreshTerraform(): void {
+    this.terraformCode = generateTerraform(this.blueprint, this.catalog);
   }
 
   private async persist(): Promise<void> {
