@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CATALOG } from './catalog';
-import { Blueprint, BlueprintBlock, BuildingBlockDefinition, ImplementationType, InputBinding, InputSourceType } from './models';
+import { Blueprint, BlueprintBlock, BuildingBlockDefinition, ImplementationType, InputBinding, InputSourceType, ParameterDefinition } from './models';
 import { PersistenceService } from './persistence.service';
 import { generateTerraform } from './terraform';
 
@@ -40,6 +40,8 @@ interface CompositionPlacement {
 export class AppComponent implements OnInit {
   private persistence = inject(PersistenceService);
   private changeDetector = inject(ChangeDetectorRef);
+  private activeInputByBlock = new Map<string, string>();
+
   catalog = CATALOG;
   query = '';
   saved = true;
@@ -102,13 +104,6 @@ export class AppComponent implements OnInit {
     return [...this.blueprint.blocks].sort((a, b) => a.order - b.order);
   }
 
-  /**
-   * Lane layout: a single dependency chain stays on one horizontal row.
-   * Roots start new rows. Children follow the row of their primary parent.
-   * For merge nodes, the deepest/earliest parent defines the primary lane and
-   * additional parents are surfaced explicitly on the card instead of routing
-   * graph lines across the canvas.
-   */
   get compositionPlacements(): CompositionPlacement[] {
     const blocks = this.orderedBlocks;
     const depths = new Map<string, number>();
@@ -195,12 +190,10 @@ export class AppComponent implements OnInit {
     return this.contextGroups(['static']);
   }
 
-  get meshStackBindingGroups(): ContextGroup[] {
-    return this.contextGroups(['meshstack-context']);
-  }
-
   definition(block: BlueprintBlock): BuildingBlockDefinition {
-    return this.catalog.find(x => x.id === block.definitionId)!;
+    const definition = this.catalog.find(x => x.id === block.definitionId);
+    if (!definition) throw new Error(`Unknown Building Block definition: ${block.definitionId}`);
+    return definition;
   }
 
   implementationIconUrl(type: ImplementationType): string | null {
@@ -238,47 +231,83 @@ export class AppComponent implements OnInit {
   }
 
   remove(block: BlueprintBlock): void {
+    this.activeInputByBlock.delete(block.instanceId);
     this.blueprint.blocks = this.blueprint.blocks.filter(x => x.instanceId !== block.instanceId);
     this.normalizeOrder();
     void this.changed();
   }
 
-  move(block: BlueprintBlock, delta: number): void {
-    const sorted = this.orderedBlocks;
-    const index = sorted.findIndex(x => x.instanceId === block.instanceId);
-    const target = index + delta;
-    if (target < 0 || target >= sorted.length) return;
-    [sorted[index].order, sorted[target].order] = [sorted[target].order, sorted[index].order];
+  toggleExpanded(block: BlueprintBlock): void {
+    this.ensureBlockBindings(block);
+    if (block.expanded) {
+      block.expanded = false;
+      this.activeInputByBlock.delete(block.instanceId);
+    } else {
+      block.expanded = true;
+      this.activeInputByBlock.delete(block.instanceId);
+    }
     void this.changed();
   }
 
-  toggleExpanded(block: BlueprintBlock): void {
+  editInput(block: BlueprintBlock, inputName: string): void {
     this.ensureBlockBindings(block);
-    block.expanded = !block.expanded;
+    block.expanded = true;
+    this.activeInputByBlock.set(block.instanceId, inputName);
     void this.changed();
+  }
+
+  visibleInputs(block: BlueprintBlock): ParameterDefinition[] {
+    const inputs = this.definition(block).inputs ?? [];
+    const active = this.activeInputByBlock.get(block.instanceId);
+    return active ? inputs.filter(input => input.name === active) : inputs;
+  }
+
+  binding(block: BlueprintBlock, inputName: string): InputBinding {
+    this.ensureBlockBindings(block);
+    return block.inputs[inputName];
   }
 
   setSource(block: BlueprintBlock, input: string, source: InputSourceType): void {
     this.ensureBlockBindings(block);
-    const current = block.inputs[input] ?? { source };
-    block.inputs[input] = { source };
+    const current = this.binding(block, input);
+    const next: InputBinding = { source };
+
     if (source === 'user' || source === 'platform-operator') {
-      block.inputs[input].value = current.value || `${block.definitionId.replace(/-/g, '_')}_${input}`;
-    }
-    if (source === 'static') block.inputs[input].value = current.value || '';
-    if (source === 'meshstack-context') block.inputs[input].contextKey = current.contextKey || 'project_identifier';
-    if (source === 'bb-output') {
+      next.value = current.value || `${block.definitionId.replace(/-/g, '_')}_${input}`;
+    } else if (source === 'static') {
+      next.value = current.value || '';
+    } else if (source === 'meshstack-context') {
+      next.contextKey = current.contextKey || 'project_identifier';
+    } else if (source === 'bb-output') {
       const candidate = this.outputCandidates(block)[0];
-      block.inputs[input].sourceBlockId = candidate?.block.instanceId;
-      block.inputs[input].sourceOutput = candidate?.output;
+      next.sourceBlockId = candidate?.block.instanceId;
+      next.sourceOutput = candidate?.output;
     }
+
+    block.inputs[input] = next;
     void this.changed();
+  }
+
+  setBindingValue(block: BlueprintBlock, inputName: string, value: string): void {
+    this.binding(block, inputName).value = value;
+    void this.changed();
+  }
+
+  setContextKey(block: BlueprintBlock, inputName: string, contextKey: string): void {
+    const current = this.binding(block, inputName);
+    block.inputs[inputName] = { ...current, source: 'meshstack-context', contextKey };
+    void this.changed();
+  }
+
+  outputReferenceValue(block: BlueprintBlock, inputName: string): string {
+    const current = this.binding(block, inputName);
+    return `${current.sourceBlockId ?? ''}|${current.sourceOutput ?? ''}`;
   }
 
   outputCandidates(current: BlueprintBlock): { block: BlueprintBlock; label: string; output: string }[] {
     return this.orderedBlocks
       .filter(block => block.instanceId !== current.instanceId)
-      .flatMap(block => this.definition(block).outputs.map(output => ({
+      .flatMap(block => (this.definition(block).outputs ?? []).map(output => ({
         block,
         label: this.definition(block).name,
         output: output.name
@@ -302,12 +331,13 @@ export class AppComponent implements OnInit {
     if (!definition) return;
     block.inputs = block.inputs ?? {};
 
-    const validNames = new Set(definition.inputs.map(input => input.name));
+    const definitionInputs = definition.inputs ?? [];
+    const validNames = new Set(definitionInputs.map(input => input.name));
     for (const existingName of Object.keys(block.inputs)) {
       if (!validNames.has(existingName)) delete block.inputs[existingName];
     }
 
-    for (const input of definition.inputs) {
+    for (const input of definitionInputs) {
       const existing = block.inputs[input.name];
       if (!existing?.source) {
         block.inputs[input.name] = this.defaultUserBinding(block, input.name);
