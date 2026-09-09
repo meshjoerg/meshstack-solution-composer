@@ -46,7 +46,8 @@ interface OutputCandidate {
   selector: 'app-root',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './app.component.html'
+  templateUrl: './app.component.html',
+  styleUrl: './app.component.css'
 })
 export class AppComponent implements OnInit {
   private persistence = inject(PersistenceService);
