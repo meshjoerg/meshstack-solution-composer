@@ -88,15 +88,7 @@
                 <div class="io-grid-row">
                   <span class="io-label">INPUTS</span>
                   <div class="io-values">
-                    <button
-                      class="parameter-chip parameter-chip-button"
-                      *ngFor="let input of definition(placement.block).inputs; trackBy: trackParameter"
-                      [class.source-meshstack]="placement.block.inputs[input.name]?.source === 'meshstack-context'"
-                      [class.source-static]="placement.block.inputs[input.name]?.source === 'static'"
-                      [class.source-user]="placement.block.inputs[input.name]?.source === 'user'"
-                      [class.source-operator]="placement.block.inputs[input.name]?.source === 'platform-operator'"
-                      [class.source-bb-output]="placement.block.inputs[input.name]?.source === 'bb-output'"
-                      (click)="editInput(placement.block,input.name)">{{ input.name }}</button>
+                    <button class="parameter-chip parameter-chip-button" *ngFor="let input of definition(placement.block).inputs; trackBy: trackParameter" [class.source-meshstack]="placement.block.inputs[input.name]?.source === 'meshstack-context'" [class.source-static]="placement.block.inputs[input.name]?.source === 'static'" [class.source-user]="placement.block.inputs[input.name]?.source === 'user'" [class.source-operator]="placement.block.inputs[input.name]?.source === 'platform-operator'" [class.source-bb-output]="placement.block.inputs[input.name]?.source === 'bb-output'" (click)="editInput(placement.block,input.name)">{{ input.name }}</button>
                   </div>
                 </div>
                 <div class="io-grid-row output-row-compact">
@@ -106,9 +98,7 @@
               </div>
             </div>
 
-            <div class="dependency-hint" *ngIf="placement.primaryParent">
-              ← {{ placement.primaryParent }}<span *ngIf="placement.secondaryParents.length"> · also {{ placement.secondaryParents.join(', ') }}</span>
-            </div>
+            <div class="dependency-hint" *ngIf="placement.primaryParent">← {{ placement.primaryParent }}<span *ngIf="placement.secondaryParents.length"> · also {{ placement.secondaryParents.join(', ') }}</span></div>
 
             <div class="bb-details compact-details" *ngIf="placement.block.expanded">
               <div class="section-caption">INPUT BINDING</div>
@@ -120,28 +110,13 @@
                   </div>
                   <div class="binding-controls">
                     <select [ngModel]="placement.block.inputs[input.name]?.source || 'user'" (ngModelChange)="setSource(placement.block,input.name,$event)">
-                      <option value="meshstack-context">meshStack context</option>
-                      <option value="static">Static value</option>
-                      <option value="user">User input</option>
-                      <option value="platform-operator">Platform operator input</option>
-                      <option value="bb-output">Building Block output</option>
+                      <option value="meshstack-context">meshStack context</option><option value="static">Static value</option><option value="user">User input</option><option value="platform-operator">Platform operator input</option><option value="bb-output">Building Block output</option>
                     </select>
-
                     <input *ngIf="placement.block.inputs[input.name]?.source === 'user' || placement.block.inputs[input.name]?.source === 'platform-operator'" [ngModel]="placement.block.inputs[input.name]?.value || ''" (ngModelChange)="setBindingValue(placement.block,input.name,$event)" placeholder="parameter name">
-
                     <input *ngIf="placement.block.inputs[input.name]?.source === 'static'" [ngModel]="placement.block.inputs[input.name]?.value || ''" (ngModelChange)="setBindingValue(placement.block,input.name,$event)" placeholder="fixed value">
-
                     <select *ngIf="placement.block.inputs[input.name]?.source === 'meshstack-context'" [ngModel]="placement.block.inputs[input.name]?.contextKey || 'project_identifier'" (ngModelChange)="setContextKey(placement.block,input.name,$event)">
-                      <option value="workspace_identifier">Workspace Identifier</option>
-                      <option value="project_identifier">Project Identifier</option>
-                      <option value="platform_identifier">Full Platform Identifier</option>
-                      <option value="tenant_id">Platform Tenant ID</option>
-                      <option value="meshstack_tenant_uuid">meshStack Tenant UUID</option>
-                      <option value="user_permissions">User Permissions</option>
-                      <option value="author">Author</option>
-                      <option value="tags">Tags</option>
+                      <option value="workspace_identifier">Workspace Identifier</option><option value="project_identifier">Project Identifier</option><option value="platform_identifier">Full Platform Identifier</option><option value="tenant_id">Platform Tenant ID</option><option value="meshstack_tenant_uuid">meshStack Tenant UUID</option><option value="user_permissions">User Permissions</option><option value="author">Author</option><option value="tags">Tags</option>
                     </select>
-
                     <select *ngIf="placement.block.inputs[input.name]?.source === 'bb-output'" [ngModel]="outputReferenceValue(placement.block,input.name)" (ngModelChange)="setOutputReference(placement.block,input.name,$event)">
                       <option value="|" disabled>Select Building Block output…</option>
                       <option *ngFor="let candidate of outputCandidates(placement.block); trackBy: trackOutputCandidate" [value]="candidate.block.instanceId + '|' + candidate.output">{{ candidate.label }} → {{ candidate.output }}</option>
@@ -156,29 +131,14 @@
     </section>
 
     <section class="contexts">
-      <article class="context meshstack">
-        <h3>meshSTACK CONTEXT <span>↓</span></h3>
-        <div class="context-defaults"><span class="source-meshstack" *ngFor="let item of meshStackDefaults">{{ item }}</span></div>
-      </article>
-      <article class="context static">
-        <h3>STATIC CONTEXT <span>↓</span></h3>
-        <div class="context-pills" *ngIf="staticGroups.length; else noStatic">
-          <ng-container *ngFor="let group of staticGroups"><span class="context-pill source-static" *ngFor="let item of group.items"><b>{{ group.blockName }}</b><i>·</i>{{ item }}</span></ng-container>
-        </div>
-        <ng-template #noStatic><p class="empty">Fixed by the solution blueprint</p></ng-template>
-      </article>
-      <article class="context user">
-        <h3>USER / OPERATOR CONTEXT <span>↓</span></h3>
-        <div class="context-pills" *ngIf="userOperatorPills.length; else noUserOperator">
-          <span class="context-pill" *ngFor="let item of userOperatorPills" [class.source-user]="!item.operator" [class.source-operator]="item.operator"><b>{{ item.blockName }}</b><i>·</i>{{ item.parameter }}<em *ngIf="item.operator">operator</em></span>
-        </div>
-        <ng-template #noUserOperator><p class="empty">Provided when the solution is requested or operated</p></ng-template>
-      </article>
+      <article class="context meshstack"><h3>meshSTACK CONTEXT <span>↓</span></h3><div class="context-defaults"><span class="source-meshstack" *ngFor="let item of meshStackDefaults">{{ item }}</span></div></article>
+      <article class="context static"><h3>STATIC CONTEXT <span>↓</span></h3><div class="context-pills" *ngIf="staticGroups.length; else noStatic"><ng-container *ngFor="let group of staticGroups"><span class="context-pill source-static" *ngFor="let item of group.items"><b>{{ group.blockName }}</b><i>·</i>{{ item }}</span></ng-container></div><ng-template #noStatic><p class="empty">Fixed by the solution blueprint</p></ng-template></article>
+      <article class="context user"><h3>USER / OPERATOR CONTEXT <span>↓</span></h3><div class="context-pills" *ngIf="userOperatorPills.length; else noUserOperator"><span class="context-pill" *ngFor="let item of userOperatorPills" [class.source-user]="!item.operator" [class.source-operator]="item.operator"><b>{{ item.blockName }}</b><i>·</i>{{ item.parameter }}<em *ngIf="item.operator">operator</em></span></div><ng-template #noUserOperator><p class="empty">Provided when the solution is requested or operated</p></ng-template></article>
     </section>
 
     <section class="code panel">
       <div class="panel-title">RESULTING SOLUTION TERRAFORM / OPENTOFU CODE <span>live from blueprint state</span></div>
-      <pre><code>{{ terraform }}</code></pre>
+      <pre><code>{{ terraformCode }}</code></pre>
     </section>
   </section>
 </main>
