@@ -88,10 +88,25 @@ function terraformDescription(body) {
   return match ? unquote(match[1]) : undefined;
 }
 
+const acronymMap = new Map([
+  ['stackit', 'STACKIT'],
+  ['gcp', 'GCP'],
+  ['aws', 'AWS'],
+  ['iam', 'IAM'],
+  ['ai', 'AI'],
+  ['api', 'API'],
+  ['github', 'GitHub'],
+  ['gitlab', 'GitLab'],
+  ['kubernetes', 'Kubernetes']
+]);
+
 function titleCase(value) {
   return value
     .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, ch => ch.toUpperCase());
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(token => acronymMap.get(token.toLowerCase()) ?? token.charAt(0).toUpperCase() + token.slice(1))
+    .join(' ');
 }
 
 function readFirstExisting(paths) {
@@ -101,11 +116,41 @@ function readFirstExisting(paths) {
   return '';
 }
 
+function isGenericHeading(value) {
+  const normalized = value
+    .replace(/[`*_#]/g, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return !normalized || [
+    'buildingblock',
+    'building block',
+    'building blocks',
+    'readme',
+    'overview',
+    'module',
+    'terraform module'
+  ].includes(normalized);
+}
+
+function titleFromReadme(readme, moduleName) {
+  const headings = [...readme.matchAll(/^#{1,3}\s+(.+)$/gm)]
+    .map(match => match[1].trim())
+    .filter(heading => heading.length < 100 && !isGenericHeading(heading));
+  return headings[0] || titleCase(moduleName);
+}
+
 function descriptionFromReadme(readme) {
   const lines = readme.split(/\r?\n/).map(line => line.trim());
   for (const line of lines) {
-    if (!line || line.startsWith('#') || line.startsWith('![') || line.startsWith('<')) continue;
-    return line.replace(/^>\s*/, '').slice(0, 240);
+    if (!line || line.startsWith('#') || line.startsWith('![') || line.startsWith('[![') || line.startsWith('<')) continue;
+    if (/^(?:---+|___+|\*\*\*+)$/.test(line)) continue;
+    if (/^\|.*\|$/.test(line)) continue;
+    if (/^[A-Za-z0-9_-]+:\s*$/.test(line)) continue;
+    const cleaned = line.replace(/^>\s*/, '').trim();
+    if (!cleaned || cleaned === '---') continue;
+    return cleaned.slice(0, 240);
   }
   return '';
 }
@@ -156,8 +201,7 @@ function generateCatalog() {
       ...(terraformDescription(body) ? { description: terraformDescription(body) } : {})
     }));
 
-    const heading = readme.match(/^#\s+(.+)$/m)?.[1]?.trim();
-    const name = heading && heading.length < 90 ? heading : titleCase(moduleName);
+    const name = titleFromReadme(readme, moduleName);
     const description = descriptionFromReadme(readme) || `${platform} Building Block from the meshStack Hub.`;
     const logo = findLogo(buildingBlockDir, moduleDir);
     const logoUrl = logo ? `${rawBase}/${relative(repoDir, logo).split(sep).join('/')}` : undefined;
