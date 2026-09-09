@@ -47,13 +47,17 @@ export class AppComponent implements OnInit {
   blueprint: Blueprint = this.newBlueprint();
 
   async ngOnInit(): Promise<void> {
-    this.blueprint = (await this.persistence.loadLast()) ?? this.newBlueprint();
+    const restored = (await this.persistence.loadLast()) ?? this.newBlueprint();
+    const knownDefinitions = new Set(this.catalog.map(item => item.id));
+    restored.blocks = restored.blocks.filter(block => knownDefinitions.has(block.definitionId));
+    restored.blocks.forEach((block, index) => block.order = index);
+    this.blueprint = restored;
     this.changeDetector.detectChanges();
   }
 
   get filteredCatalog(): BuildingBlockDefinition[] {
     const q = this.query.trim().toLowerCase();
-    return q ? this.catalog.filter(x => `${x.name} ${x.description}`.toLowerCase().includes(q)) : this.catalog;
+    return q ? this.catalog.filter(x => `${x.name} ${x.description} ${x.platform ?? ''}`.toLowerCase().includes(q)) : this.catalog;
   }
 
   get orderedBlocks(): BlueprintBlock[] {
