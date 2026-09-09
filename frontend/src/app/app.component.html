@@ -73,8 +73,8 @@
                 <p>{{ definition(placement.block).description }}</p>
               </div>
               <div class="bb-actions">
-                <button type="button" (click)="toggleExpanded(placement.block)">{{ placement.block.expanded ? '▴' : '▾' }}</button>
-                <button type="button" (click)="remove(placement.block)">×</button>
+                <button type="button" title="Edit input parameters" (click)="toggleExpanded(placement.block)">{{ placement.block.expanded ? '▴' : '✎' }}</button>
+                <button type="button" title="Remove Building Block" (click)="remove(placement.block)">×</button>
               </div>
             </div>
 
@@ -101,35 +101,40 @@
             <div class="dependency-hint" *ngIf="placement.primaryParent">← {{ placement.primaryParent }}<span *ngIf="placement.secondaryParents.length"> · also {{ placement.secondaryParents.join(', ') }}</span></div>
 
             <div class="bb-details compact-details" *ngIf="placement.block.expanded">
-              <div class="section-caption">INPUT BINDING</div>
-              <ng-container *ngFor="let input of definition(placement.block).inputs; trackBy: trackParameter">
-                <div class="parameter" *ngIf="isActiveInput(placement.block,input.name)">
-                  <div class="parameter-info">
-                    <div class="parameter-name">{{ input.name }} <small>{{ input.type }}</small></div>
-                    <p>{{ input.description }}</p>
-                  </div>
-                  <div class="binding-controls">
-                    <select [ngModel]="placement.block.inputs[input.name]?.source || 'unassigned'" (ngModelChange)="setSource(placement.block,input.name,$event)">
-                      <option value="unassigned">Not assigned</option>
-                      <option value="meshstack-context">meshStack context</option>
-                      <option value="static">Static value</option>
-                      <option value="user">User input</option>
-                      <option value="platform-operator">Platform operator input</option>
-                      <option value="bb-output">Building Block output</option>
-                    </select>
-                    <div class="runtime-binding-hint source-user" *ngIf="placement.block.inputs[input.name]?.source === 'user'">Value is entered by the solution user when the Building Block is instantiated.</div>
-                    <div class="runtime-binding-hint source-operator" *ngIf="placement.block.inputs[input.name]?.source === 'platform-operator'">Value is supplied by the platform operator when the Building Block is configured.</div>
-                    <input *ngIf="placement.block.inputs[input.name]?.source === 'static'" [ngModel]="placement.block.inputs[input.name]?.value || ''" (ngModelChange)="setBindingValue(placement.block,input.name,$event)" placeholder="fixed value">
-                    <select *ngIf="placement.block.inputs[input.name]?.source === 'meshstack-context'" [ngModel]="placement.block.inputs[input.name]?.contextKey || 'project_identifier'" (ngModelChange)="setContextKey(placement.block,input.name,$event)">
-                      <option value="workspace_identifier">Workspace Identifier</option><option value="project_identifier">Project Identifier</option><option value="platform_identifier">Full Platform Identifier</option><option value="tenant_id">Platform Tenant ID</option><option value="meshstack_tenant_uuid">meshStack Tenant UUID</option><option value="user_permissions">User Permissions</option><option value="author">Author</option><option value="tags">Tags</option>
-                    </select>
-                    <select *ngIf="placement.block.inputs[input.name]?.source === 'bb-output'" [ngModel]="outputReferenceValue(placement.block,input.name)" (ngModelChange)="setOutputReference(placement.block,input.name,$event)">
-                      <option value="|" disabled>Select Building Block output…</option>
-                      <option *ngFor="let candidate of outputCandidates(placement.block); trackBy: trackOutputCandidate" [value]="candidate.block.instanceId + '|' + candidate.output">{{ candidate.label }} → {{ candidate.output }}</option>
-                    </select>
-                  </div>
+              <div class="section-caption">EDIT INPUT PARAMETERS</div>
+              <div class="parameter" *ngFor="let input of definition(placement.block).inputs; trackBy: trackParameter">
+                <div class="parameter-info">
+                  <div class="parameter-name">{{ input.name }} <small>{{ input.type }}</small></div>
+                  <p>{{ input.description }}</p>
                 </div>
-              </ng-container>
+                <div class="binding-controls">
+                  <select [ngModel]="placement.block.inputs[input.name]?.source || 'unassigned'" (ngModelChange)="setSource(placement.block,input.name,$event)">
+                    <option value="unassigned">Not assigned</option>
+                    <option value="meshstack-context">meshStack context</option>
+                    <option value="static">Static value</option>
+                    <option value="user">User input</option>
+                    <option value="platform-operator">Platform operator input</option>
+                    <option value="bb-output">Building Block output</option>
+                  </select>
+                  <div class="runtime-binding-hint source-user" *ngIf="placement.block.inputs[input.name]?.source === 'user'">Entered by the solution user at runtime.</div>
+                  <div class="runtime-binding-hint source-operator" *ngIf="placement.block.inputs[input.name]?.source === 'platform-operator'">Supplied by the platform operator at runtime.</div>
+                  <input *ngIf="placement.block.inputs[input.name]?.source === 'static'" [ngModel]="placement.block.inputs[input.name]?.value || ''" (ngModelChange)="setBindingValue(placement.block,input.name,$event)" placeholder="Static value">
+                  <select *ngIf="placement.block.inputs[input.name]?.source === 'meshstack-context'" [ngModel]="placement.block.inputs[input.name]?.contextKey || 'project_identifier'" (ngModelChange)="setContextKey(placement.block,input.name,$event)">
+                    <option value="workspace_identifier">Workspace Identifier</option>
+                    <option value="project_identifier">Project Identifier</option>
+                    <option value="platform_identifier">Full Platform Identifier</option>
+                    <option value="tenant_id">Platform Tenant ID</option>
+                    <option value="meshstack_tenant_uuid">meshStack Tenant UUID</option>
+                    <option value="user_permissions">User Permissions</option>
+                    <option value="author">Author</option>
+                    <option value="tags">Tags</option>
+                  </select>
+                  <select *ngIf="placement.block.inputs[input.name]?.source === 'bb-output'" [ngModel]="outputReferenceValue(placement.block,input.name)" (ngModelChange)="setOutputReference(placement.block,input.name,$event)">
+                    <option value="|" disabled>Select Building Block output…</option>
+                    <option *ngFor="let candidate of outputCandidates(placement.block); trackBy: trackOutputCandidate" [value]="candidate.block.instanceId + '|' + candidate.output">{{ candidate.label }} → {{ candidate.output }}</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </article>
         </div>
