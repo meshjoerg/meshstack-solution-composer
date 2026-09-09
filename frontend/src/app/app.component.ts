@@ -34,9 +34,6 @@ export class AppComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.blueprint = (await this.persistence.loadLast()) ?? this.newBlueprint();
-    // IndexedDB resolves outside Angular change detection in some browser/runtime
-    // combinations. Render the restored blueprint immediately instead of waiting
-    // for the next user interaction to trigger a view update.
     this.changeDetector.detectChanges();
   }
 
@@ -47,6 +44,37 @@ export class AppComponent implements OnInit {
 
   get orderedBlocks(): BlueprintBlock[] {
     return [...this.blueprint.blocks].sort((a, b) => a.order - b.order);
+  }
+
+  /**
+   * Compact layered DAG layout: roots are placed in the first column and each
+   * dependent Building Block is placed one column after its deepest parent.
+   * The input binding remains the source of truth; the layout is only a view.
+   */
+  get compositionColumns(): BlueprintBlock[][] {
+    const blocks = this.orderedBlocks;
+    const byId = new Map(blocks.map(block => [block.instanceId, block]));
+    const depths = new Map<string, number>();
+
+    const depthOf = (block: BlueprintBlock, visiting = new Set<string>()): number => {
+      const cached = depths.get(block.instanceId);
+      if (cached !== undefined) return cached;
+      if (visiting.has(block.instanceId)) return 0;
+
+      const nextVisiting = new Set(visiting);
+      nextVisiting.add(block.instanceId);
+      const parents = this.parentBlocks(block).filter(parent => byId.has(parent.instanceId));
+      const depth = parents.length
+        ? Math.max(...parents.map(parent => depthOf(parent, nextVisiting))) + 1
+        : 0;
+      depths.set(block.instanceId, depth);
+      return depth;
+    };
+
+    const maxDepth = blocks.reduce((max, block) => Math.max(max, depthOf(block)), 0);
+    const columns = Array.from({ length: maxDepth + 1 }, () => [] as BlueprintBlock[]);
+    blocks.forEach(block => columns[depthOf(block)].push(block));
+    return columns;
   }
 
   get terraform(): string { return generateTerraform(this.blueprint, this.catalog); }
@@ -72,13 +100,26 @@ export class AppComponent implements OnInit {
     return slug ? `https://cdn.simpleicons.org/${slug}` : null;
   }
 
+  parentBlocks(block: BlueprintBlock): BlueprintBlock[] {
+    const ids = new Set(
+      Object.values(block.inputs)
+        .filter(binding => binding.source === 'bb-output' && binding.sourceBlockId)
+        .map(binding => binding.sourceBlockId as string)
+    );
+    return this.orderedBlocks.filter(candidate => ids.has(candidate.instanceId));
+  }
+
+  dependencyNames(block: BlueprintBlock): string[] {
+    return this.parentBlocks(block).map(parent => this.definition(parent).name);
+  }
+
   add(definition: BuildingBlockDefinition): void {
     if (this.blueprint.blocks.some(b => b.definitionId === definition.id)) return;
     this.blueprint.blocks.push({
       instanceId: crypto.randomUUID(),
       definitionId: definition.id,
       order: this.blueprint.blocks.length,
-      expanded: true,
+      expanded: false,
       inputs: Object.fromEntries(definition.inputs.map(input => [
         input.name,
         { source: 'user', value: `${definition.id.replace(/-/g, '_')}_${input.name}` } satisfies InputBinding
