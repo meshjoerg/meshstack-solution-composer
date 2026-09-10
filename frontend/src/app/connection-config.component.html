@@ -1,0 +1,75 @@
+<div class="config-root" (click)="$event.stopPropagation()">
+  <button class="config-launcher" type="button" (click)="toggle($event)">
+    <span class="launcher-label">CONFIG</span>
+    <span class="launcher-state" [class.on]="meshstackConfigured" title="meshStack"></span>
+    <span class="launcher-state" [class.on]="gitConfigured" title="Git"></span>
+  </button>
+
+  <aside class="config-flyout" *ngIf="open">
+    <div class="config-head">
+      <div>
+        <strong>DEMO CONNECTIONS</strong>
+        <span>{{ saved ? 'stored locally' : 'saving…' }}</span>
+      </div>
+      <button type="button" (click)="close()">×</button>
+    </div>
+
+    <section class="config-section">
+      <div class="section-head">
+        <strong>meshStack</strong>
+        <span class="connection-badge" [class.connected]="meshstackConfigured">{{ meshstackConfigured ? 'configured' : 'not configured' }}</span>
+      </div>
+      <label>Endpoint
+        <input [(ngModel)]="config.meshstackUrl" (ngModelChange)="changed()" placeholder="https://meshstack.example.com">
+      </label>
+      <label>API key
+        <input type="password" [(ngModel)]="config.meshstackApiKey" (ngModelChange)="changed()" placeholder="meshStack API key">
+      </label>
+    </section>
+
+    <section class="config-section">
+      <div class="section-head">
+        <strong>Working repository</strong>
+        <span class="connection-badge" [class.connected]="gitConfigured">{{ gitConfigured ? 'configured' : 'not configured' }}</span>
+      </div>
+      <label>Repository
+        <input [(ngModel)]="config.gitRepository" (ngModelChange)="changed()" placeholder="owner/repository or repository URL">
+      </label>
+      <div class="two-cols">
+        <label>Branch
+          <input [(ngModel)]="config.gitBranch" (ngModelChange)="changed()" placeholder="main">
+        </label>
+        <label>Repo key / token
+          <input type="password" [(ngModel)]="config.gitKey" (ngModelChange)="changed()" placeholder="access key">
+        </label>
+      </div>
+    </section>
+
+    <section class="config-section muted-section">
+      <div class="section-head">
+        <strong>Private Hub</strong>
+        <span class="connection-badge" [class.connected]="privateHubConfigured">{{ privateHubConfigured ? 'configured' : 'optional' }}</span>
+      </div>
+      <label>Endpoint
+        <input [(ngModel)]="config.privateHubUrl" (ngModelChange)="changed()" placeholder="Private Hub endpoint">
+      </label>
+      <label>API key
+        <input type="password" [(ngModel)]="config.privateHubKey" (ngModelChange)="changed()" placeholder="Private Hub key">
+      </label>
+    </section>
+
+    <section class="config-section quick-config">
+      <div class="section-head">
+        <strong>Quick paste</strong>
+        <button class="text-button" type="button" (click)="copyTemplate()">template</button>
+      </div>
+      <textarea [(ngModel)]="jsonDraft" rows="7" placeholder="Paste connection JSON here…"></textarea>
+      <div class="json-actions">
+        <span class="config-error">{{ jsonError }}</span>
+        <button class="apply-button" type="button" [disabled]="!jsonDraft.trim()" (click)="applyJson()">Apply config</button>
+      </div>
+    </section>
+
+    <p class="config-note">Prototype only: credentials are stored locally in this browser's IndexedDB and are not written into the blueprint or generated Terraform.</p>
+  </aside>
+</div>
