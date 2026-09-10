@@ -1,6 +1,13 @@
 <header class="topbar">
   <div><strong>meshStack</strong> <span>Solution Composer</span></div>
-  <div class="status">{{ saved ? 'Saved locally' : 'Saving…' }}</div>
+  <div class="topbar-right">
+    <div class="status">{{ saved ? 'Saved locally' : 'Saving…' }}</div>
+    <app-demo-controls
+      [blueprint]="blueprint"
+      [terraformCode]="terraformCode"
+      (blueprintLoaded)="loadBlueprintFromGit($event)">
+    </app-demo-controls>
+  </div>
 </header>
 
 <main class="workspace">
