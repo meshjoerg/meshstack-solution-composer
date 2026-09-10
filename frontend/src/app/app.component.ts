@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CATALOG } from './catalog';
 import { Blueprint, BlueprintBlock, BuildingBlockDefinition, ImplementationType, InputBinding, InputSourceType, ParameterDefinition } from './models';
@@ -223,6 +223,7 @@ export class AppComponent implements OnInit {
   }
 
   openQuickEditor(block: BlueprintBlock, inputName: string, event: MouseEvent): void {
+    event.stopPropagation();
     this.ensureBlockBindings(block);
     const input = this.definition(block).inputs.find(candidate => candidate.name === inputName);
     if (!input) return;
@@ -248,6 +249,13 @@ export class AppComponent implements OnInit {
   closeQuickEditor(): void {
     this.quickEditorBlock = null;
     this.quickEditorInput = null;
+  }
+
+  @HostListener('document:click')
+  closeQuickEditorOnOutsideClick(): void {
+    if (!this.quickEditorBlock) return;
+    this.closeQuickEditor();
+    this.changeDetector.detectChanges();
   }
 
   quickSource(): InputSourceType {
