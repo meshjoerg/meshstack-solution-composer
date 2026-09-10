@@ -22,6 +22,10 @@ This makes the model recursive:
 
 The editor is therefore a **productization workbench** for modular standardization: reusable parts can be standardized while remaining composable into individual solutions.
 
+The primary target perspective for the prototype is a **System Integrator / Managed Service Provider assembling a customer solution from a reusable cloud construction kit**. The integrator should be able to combine public ecosystem capabilities, its own proprietary delivery IP and customer-specific configuration into a repeatable solution product instead of rebuilding every customer delivery from scratch.
+
+A composed Solution should therefore be reusable beyond a single blueprint session: it can be versioned in Git, published as a reusable Building Block, and ultimately made available in a **Private Hub** as part of the integrator's proprietary solution portfolio.
+
 ## Design decisions made so far
 
 ### 1. Main workspace
@@ -43,7 +47,21 @@ A blueprint currently has:
 - Working Git Repository
 - Repository Path
 
+Still required as solution metadata:
+
+- **Tags** for classification, discovery and portfolio organization
+
 The repository fields are intentionally already part of the model even though Git persistence is not implemented yet.
+
+In addition to metadata, a Solution must be able to define **its own composite input parameters**, even when those parameters are not inherited from a child Building Block. Typical System Integrator examples are:
+
+- customer number
+- order / contract number
+- service tier
+- environment code
+- internal cost-center or delivery identifiers
+
+These parameters become part of the resulting Solution Building Block interface and can then be forwarded into one or more child Building Blocks, used for naming/tagging/commercial allocation, or simply exposed as solution-level runtime information. They are distinct from automatically promoted unresolved child inputs: the integrator creates them deliberately as part of the productized customer solution contract.
 
 ### 3. Building Block Catalog
 
@@ -154,6 +172,22 @@ This also means `Not assigned` has two meanings depending on requiredness:
 - **optional + not assigned** → may remain omitted and fall back to the child Building Block / implementation default.
 
 The exact naming and collision strategy for promoted inputs still needs to be defined (for example `project_name` vs. a qualified name such as `stackit_project.project_name`).
+
+#### Explicit Solution-level inputs
+
+The integrator must also be able to create new inputs directly on the composite Solution Building Block. These do not originate from unresolved child inputs and therefore need an explicit `+ Solution Parameter` / equivalent editing flow.
+
+A Solution-level input should carry the same useful metadata as imported inputs where applicable:
+
+- name / identifier
+- data type
+- description
+- required vs. optional
+- default value where appropriate
+- sensitivity
+- runtime source semantics
+
+It should then be possible to bind the Solution-level input to multiple child inputs and/or use it for generated metadata such as names, tags, chargeback identifiers or customer references.
 
 ### 7. Parameter editing
 
@@ -276,7 +310,13 @@ The intended flow is roughly:
        ┌──────────────────┐               ┌──────────────────┐
        │ Git repository   │               │ meshStack        │
        │ versioned code   │               │ publish/import   │
-       └──────────────────┘               └──────────────────┘
+       └─────────┬────────┘               └──────────────────┘
+                 │
+                 ▼
+       ┌──────────────────┐
+       │ Private Hub      │
+       │ solution product │
+       └──────────────────┘
 ```
 
 ## Open requirements / next steps
@@ -325,16 +365,44 @@ For each source, show connection/availability state where meaningful.
 
 Every Building Block should expose provenance, initially via source cap and tooltip/details. For a team demo, it must be obvious that the catalog is intended to **merge reusable capabilities from several supply sources into one portfolio**.
 
-### C. Private Hub integration
+### C. Private Hub integration and Solution publishing
 
-The target model includes a Private Hub for proprietary/internal/partner-specific capabilities.
+The target model includes a Private Hub for proprietary/internal/partner-specific capabilities and **finished reusable Solutions**.
+
+A System Integrator should be able to:
+
+1. create a Solution from reusable Building Blocks;
+2. add customer-independent solution metadata and Solution-level parameters;
+3. version the result in Git;
+4. publish the resulting composite Building Block into a Private Hub;
+5. later discover that Solution in the catalog and reuse/customize it for another customer.
+
+This creates the intended recursive product model: a composed Solution becomes another reusable Building Block in the integrator's cloud construction kit.
+
+The current public Hub is effectively a **website/catalog overlay on top of a Git repository**. That is sufficient for the current prototype import experiment, but a real Composer/Private-Hub workflow will probably need a stable machine-facing API rather than relying on repository layout or website scraping.
+
+The prototype should therefore be used to experiment with the required **Hub API contract**. Likely API capabilities include:
+
+- list/search/filter catalog entries
+- retrieve canonical metadata and parameter schema
+- retrieve implementation/source references
+- publish a new Building Block / Solution
+- update metadata or publish a new version
+- deprecate/archive versions
+- distinguish public, private and organization-specific visibility
+- preserve provenance and source repository information
+
+Open architecture question: **Is Git the authoritative source of truth with the Hub API indexing/publishing Git-backed artifacts, or does the Hub become an independent registry with Git as one implementation/source?** The prototype should help answer this before the Private Hub model is hardened.
 
 Still open:
 
 - discovery/authentication model
 - catalog metadata format
-- distinction between private Hub and arbitrary Git-hosted custom Building Blocks
+- versioning and identity semantics for published Solutions
+- distinction between Private Hub and arbitrary Git-hosted custom Building Blocks
 - publishing path from a composed/custom Building Block into the Private Hub
+- stable API design for both reading and publishing Hub content
+- how a Private Hub is configured/connected as a Catalog source
 
 ### D. Git integration
 
@@ -348,6 +416,7 @@ The Git integration should support:
 - maintain a portfolio of Solutions / composite Building Blocks
 - add and maintain Custom Building Blocks alongside solutions
 - preserve metadata required to reconstruct the Composer state
+- provide the versioned artifact that can subsequently be published into a Private Hub
 
 Likely follow-up decisions:
 
@@ -372,6 +441,7 @@ Open work includes:
 - preserve optional/default variable information
 - preserve richer parameter metadata (types, sensitivity, optional/required, selections, etc.) where available
 - provide a stable source URL/code link for every imported Building Block
+- replace repository/website-specific parsing with the stable Hub API if that API direction proves viable
 
 ### F. Exact meshStack Composition code generation
 
@@ -385,8 +455,9 @@ Before it becomes executable, validate and implement:
 - meshStack Context Metadata bindings
 - User Input / Platform Operator Input semantics
 - promotion of unresolved required child inputs into the composite Building Block interface
+- explicit user-created Solution-level inputs and their wiring into child Building Blocks
 - required/optional/default propagation from imported BBD/OpenTofu metadata
-- deterministic naming and collision handling for promoted composite inputs
+- deterministic naming and collision handling for promoted and explicit composite inputs
 - output assignments (resource URL, sign-in URL, summary, platform tenant ID, etc.)
 - optional/default variables
 - sensitive values
@@ -412,7 +483,9 @@ Local autosave exists, but explicit lifecycle actions are still open:
 - Open Blueprint
 - duplicate/fork Solution
 - rename/move repository path
+- Tags and catalog metadata editing
 - distinguish local unsaved working state from last Git commit
+- publish/version status relative to Git, meshStack and Private Hub
 
 ### I. Custom Building Blocks
 
@@ -427,7 +500,21 @@ Open questions include:
 - how custom logos/metadata are stored
 - how custom Building Blocks are promoted into a Private Hub or meshStack
 
-### J. Deployment / execution
+### J. Solution metadata and explicit parameters
+
+The current metadata editor is incomplete for a System Integrator productization workflow.
+
+Add at minimum:
+
+- editable Tags
+- explicit creation/removal/editing of Solution-level input parameters
+- mapping of one Solution parameter to one or more child Building Block inputs
+- required/optional/default/sensitive metadata for those parameters
+- a clear distinction between **automatically promoted unresolved child inputs** and **intentionally designed Solution inputs**
+
+The latter is important for customer-delivery semantics such as customer number, order number, contract identifier or standardized service tier: those values are part of the integrator's Solution contract even if no imported Building Block originally declared them.
+
+### K. Deployment / execution
 
 The current prototype composes and generates code; it does not deploy/apply the resulting solution.
 
@@ -452,4 +539,4 @@ The following are intentionally **not** core to the current prototype unless pro
 - local IndexedDB — working-state persistence
 - generated Hub catalog — current public Hub snapshot
 
-The current prototype intentionally keeps most composition logic in the frontend. The backend is expected to become the adapter layer for Git, local files and authenticated external integrations such as meshStack.
+The current prototype intentionally keeps most composition logic in the frontend. The backend is expected to become the adapter layer for Git, local files and authenticated external integrations such as meshStack, Private Hub and a future Hub API.
