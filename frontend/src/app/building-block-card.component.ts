@@ -20,6 +20,7 @@ export class BuildingBlockCardComponent {
   @Input() action: 'add' | 'remove' = 'add';
   @Input() bindings: Record<string, InputBinding> = {};
   @Input() interactiveInputs = false;
+  @Input() incomingArrow = false;
 
   @Output() actionClick = new EventEmitter<void>();
   @Output() expandedChange = new EventEmitter<boolean>();
