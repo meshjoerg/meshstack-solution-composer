@@ -1,3 +1,9 @@
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .workspace {
   grid-template-columns: 360px minmax(760px, 1fr);
 }
