@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, HostListener, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { BuildingBlockCardComponent } from './building-block-card.component';
 import { CATALOG } from './catalog';
-import { Blueprint, BlueprintBlock, BuildingBlockDefinition, ImplementationType, InputBinding, InputSourceType, ParameterDefinition } from './models';
+import { Blueprint, BlueprintBlock, BuildingBlockDefinition, InputBinding, InputSourceType, ParameterDefinition } from './models';
 import { PersistenceService } from './persistence.service';
 import { generateTerraform } from './terraform';
 
@@ -45,7 +46,7 @@ interface OutputCandidate {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, BuildingBlockCardComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
@@ -150,17 +151,6 @@ export class AppComponent implements OnInit {
     const definition = this.definitionMap.get(block.definitionId);
     if (!definition) throw new Error(`Unknown Building Block definition: ${block.definitionId}`);
     return definition;
-  }
-
-  implementationIconUrl(type: ImplementationType): string | null {
-    const slugs: Partial<Record<ImplementationType, string>> = {
-      'opentofu': 'opentofu',
-      'github-actions': 'github',
-      'gitlab-cicd': 'gitlab',
-      'azure-devops': 'azuredevops'
-    };
-    const slug = slugs[type];
-    return slug ? `https://cdn.simpleicons.org/${slug}` : null;
   }
 
   add(definition: BuildingBlockDefinition): void {
