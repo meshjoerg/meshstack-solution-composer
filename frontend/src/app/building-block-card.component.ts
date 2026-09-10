@@ -26,7 +26,8 @@ export class BuildingBlockCardComponent {
   @Output() inputClick = new EventEmitter<BuildingBlockInputClick>();
 
   toggleExpanded(): void {
-    this.expandedChange.emit(!this.expanded);
+    this.expanded = !this.expanded;
+    this.expandedChange.emit(this.expanded);
   }
 
   triggerAction(event: MouseEvent): void {
