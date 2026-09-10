@@ -132,6 +132,29 @@ Source-specific behavior:
 
 If an imported OpenTofu variable has an implementation-level default, that should eventually be preserved as implementation metadata rather than silently converted into a User Input default.
 
+#### Propagating unresolved required inputs into the composite Building Block
+
+The resulting composite Building Block must expose every **required child-Building-Block input that is still unresolved by the composition**.
+
+In other words, an input is internal to the composition if it is satisfied by a static value, meshStack context, a platform-operator binding, or another Building Block output. A required input that is not satisfied in the composition must instead become an **input of the resulting composite Building Block** and be wired through to the corresponding child Building Block input.
+
+The intended generation rule is:
+
+1. determine whether an imported input is required or optional from its source metadata;
+2. if it is required and has no binding in the composition, promote it to the composite Building Block interface;
+3. generate a composite input with the appropriate name/type/description/sensitivity metadata;
+4. wire that composite input into the child Building Block input;
+5. when the resulting composite Building Block is instantiated, meshStack then asks for those exposed values according to the resulting input source semantics.
+
+For OpenTofu/Terraform-backed Building Blocks, a variable without an implementation-level `default` is the obvious required-input signal; a variable with a `default` can remain optional. For BBDs imported from meshStack or other sources, required/optional metadata should be taken from the canonical source model when available rather than inferred from the UI.
+
+This also means `Not assigned` has two meanings depending on requiredness:
+
+- **required + not assigned** → must be promoted to the composite Building Block interface before export;
+- **optional + not assigned** → may remain omitted and fall back to the child Building Block / implementation default.
+
+The exact naming and collision strategy for promoted inputs still needs to be defined (for example `project_name` vs. a qualified name such as `stackit_project.project_name`).
+
 ### 7. Parameter editing
 
 There are two complementary editing modes:
@@ -361,6 +384,9 @@ Before it becomes executable, validate and implement:
 - Parent Building Block Output wiring
 - meshStack Context Metadata bindings
 - User Input / Platform Operator Input semantics
+- promotion of unresolved required child inputs into the composite Building Block interface
+- required/optional/default propagation from imported BBD/OpenTofu metadata
+- deterministic naming and collision handling for promoted composite inputs
 - output assignments (resource URL, sign-in URL, summary, platform tenant ID, etc.)
 - optional/default variables
 - sensitive values
