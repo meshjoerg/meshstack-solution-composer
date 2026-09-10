@@ -26,4 +26,14 @@ export class PersistenceService {
     const id = await db.get('settings', 'lastBlueprintId');
     return id ? db.get('blueprints', id) : undefined;
   }
+
+  async saveSetting<T>(key: string, value: T): Promise<void> {
+    const db = await this.dbPromise;
+    await db.put('settings', structuredClone(value), key);
+  }
+
+  async loadSetting<T>(key: string): Promise<T | undefined> {
+    const db = await this.dbPromise;
+    return db.get('settings', key) as Promise<T | undefined>;
+  }
 }
