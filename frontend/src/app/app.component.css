@@ -65,7 +65,6 @@
   display: none;
 }
 
-/* Keep the disclosure exactly as the original simple triangle, just larger. */
 .catalog-toggle-chevron {
   width: 18px;
   height: 24px;
@@ -224,7 +223,6 @@
   white-space: nowrap;
 }
 
-/* Composer disclosure is already visually correct; keep it subtle. */
 .chevron-icon {
   width: 9px;
   height: 9px;
@@ -332,7 +330,6 @@
   border-radius: 0;
 }
 
-/* Large BBs stay usable instead of turning into multi-screen towers. */
 .bb-anatomy {
   align-items: start;
 }
@@ -372,7 +369,6 @@
   text-overflow: ellipsis;
 }
 
-/* Same protection for an explicitly expanded catalog card. */
 .catalog-anatomy .io-values {
   min-width: 0;
   max-width: 100%;
@@ -474,7 +470,6 @@
   padding: 6px 7px;
 }
 
-/* Catalog cards use the same source-cap language as composer cards. */
 .catalog-item {
   position: relative;
   overflow: hidden;
@@ -497,7 +492,6 @@
   line-height: 1.2;
 }
 
-/* One clean compact technical row in a collapsed catalog card. */
 .catalog-details > summary {
   display: grid;
   grid-template-columns: 18px auto minmax(0, 1fr);
@@ -564,6 +558,81 @@
 
 .catalog-counts i {
   flex: 0 0 auto;
+}
+
+/* Final unified technical summary: implementation left, counts center, disclosure right. */
+.bb-tech-summary,
+.catalog-details > summary.bb-tech-summary,
+button.bb-tech-summary {
+  display: grid !important;
+  grid-template-columns: 32px minmax(0, 1fr) 20px !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.bb-tech-icon {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.bb-tech-counts {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: start;
+}
+
+.bb-tech-disclosure {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  width: 20px;
+  text-align: center;
+}
+
+/* A platform-group marker must never leak into nested Building Block details. */
+.platform-group .catalog-details > summary::before {
+  display: none !important;
+  content: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+}
+
+.catalog-details {
+  margin: 0 12px 10px !important;
+  padding: 0 !important;
+  border-top: 1px solid #d7dde2 !important;
+}
+
+.catalog-details > summary.bb-tech-summary {
+  min-height: 50px !important;
+  padding: 8px 0 !important;
+  border-bottom: 1px solid #d7dde2;
+  color: #65727c;
+}
+
+.catalog-expanded-io {
+  padding: 9px 0 2px !important;
+}
+
+.catalog-expanded-io .io-grid-row {
+  grid-template-columns: 72px minmax(0, 1fr) !important;
+}
+
+.catalog-expanded-io .io-label-input,
+.catalog-expanded-io .io-label-output {
+  font-size: 0 !important;
+}
+
+.catalog-expanded-io .io-label-input::after {
+  content: 'INPUTS';
+  font-size: 9px;
+}
+
+.catalog-expanded-io .io-label-output::after {
+  content: 'OUTPUTS';
+  font-size: 9px;
 }
 
 @media (max-width: 1050px) {
