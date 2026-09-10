@@ -474,6 +474,98 @@
   padding: 6px 7px;
 }
 
+/* Catalog cards use the same source-cap language as composer cards. */
+.catalog-item {
+  position: relative;
+  overflow: hidden;
+  padding-top: 40px;
+}
+
+.catalog-copy > .source-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px 12px 5px;
+  border-top: 0;
+  border-bottom: 1px solid #d7dde2;
+  border-radius: 8px 8px 0 0;
+  background: #eef1f3;
+  color: #74808a;
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+/* One clean compact technical row in a collapsed catalog card. */
+.catalog-details > summary {
+  display: grid;
+  grid-template-columns: 18px auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  list-style: none !important;
+  list-style-type: none !important;
+  -webkit-appearance: none;
+}
+
+.catalog-details > summary::marker {
+  content: '';
+  font-size: 0;
+}
+
+.catalog-details > summary::-webkit-details-marker {
+  display: none !important;
+}
+
+.catalog-toggle-chevron {
+  width: 16px;
+  height: 20px;
+}
+
+.catalog-toggle-chevron::before {
+  content: '▸';
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.catalog-details[open] .catalog-toggle-chevron::before {
+  content: '▾';
+}
+
+.catalog-implementation-summary {
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.catalog-implementation-summary img {
+  width: 18px;
+  height: 18px;
+}
+
+.catalog-implementation-summary small,
+.catalog-counts {
+  font-size: 8.5px;
+}
+
+.catalog-counts {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.catalog-count-unit {
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.catalog-counts i {
+  flex: 0 0 auto;
+}
+
 @media (max-width: 1050px) {
   .workspace {
     grid-template-columns: 310px minmax(620px, 1fr);
