@@ -1,0 +1,326 @@
+:host {
+  display: block;
+  min-width: 0;
+  position: relative;
+}
+
+:host(.catalog-card) {
+  margin-bottom: 10px;
+}
+
+:host(.lane-card) {
+  align-self: start;
+}
+
+.bb-card-lane-arrow {
+  position: absolute;
+  left: -29px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8a959e;
+  font-size: 22px;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.bb-card {
+  overflow: hidden;
+  border: 1px solid #c8d2d9;
+  border-radius: 10px;
+  background: #e9eef1;
+  color: #1f2a35;
+  box-shadow: 0 1px 2px rgba(25, 36, 47, .05);
+}
+
+.bb-card-source {
+  padding: 6px 12px 5px;
+  border-bottom: 1px solid #d5dde2;
+  background: #eef2f4;
+  color: #73808a;
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.bb-card-head {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 34px;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px 9px;
+}
+
+.bb-card-logo {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgba(210, 219, 225, .65);
+  font-size: 24px;
+}
+
+.bb-card-logo img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.bb-card-copy {
+  min-width: 0;
+}
+
+.bb-card-copy strong {
+  display: block;
+  color: #1d2732;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.bb-card-copy p {
+  margin: 3px 0 0;
+  color: #687581;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.bb-card-action {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #c2cdd4;
+  border-radius: 6px;
+  background: #f8fafb;
+  color: #53626d;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.bb-card-action:hover {
+  background: #eef3f5;
+  border-color: #aebbc4;
+}
+
+.bb-card-summary {
+  width: calc(100% - 24px);
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 24px;
+  gap: 10px;
+  align-items: center;
+  margin: 0 12px;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid #d4dde2;
+  background: transparent;
+  color: #66737d;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bb-card.is-expanded .bb-card-summary {
+  border-bottom: 1px solid #d4dde2;
+}
+
+.bb-card-summary:hover {
+  background: rgba(255,255,255,.18);
+}
+
+.bb-card-tech {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.bb-card-tech img {
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+}
+
+.bb-card-gear {
+  font-size: 21px;
+}
+
+.bb-card-official {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e6c86b;
+  border-radius: 50%;
+  background: #fff3d4;
+  color: #9e6b00;
+  font-size: 8px;
+  line-height: 1;
+}
+
+.bb-card-counts {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  color: #66737d;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .055em;
+}
+
+.bb-card-counts span {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.bb-card-counts b {
+  min-width: 18px;
+  color: #44545f;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-align: right;
+}
+
+.bb-card-disclosure {
+  justify-self: end;
+  align-self: center;
+  width: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 1px;
+  color: #63737e;
+  font-size: 18px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.bb-card-parameters {
+  max-height: 360px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 12px 10px;
+  scrollbar-gutter: stable;
+}
+
+.bb-card-io-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 9px 0;
+}
+
+.bb-card-output-row {
+  border-top: 1px solid #d4dde2;
+}
+
+.bb-card-io-label {
+  padding-top: 3px;
+  color: #536c7a;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .04em;
+}
+
+.bb-card-output-label {
+  color: #65785f;
+}
+
+.bb-card-io-values {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.bb-card-parameter {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  overflow: hidden;
+  border: 1px solid #ced7dd;
+  border-radius: 5px;
+  background: #f7f9fa;
+  color: #4b5964;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+button.bb-card-parameter {
+  cursor: pointer;
+}
+
+button.bb-card-parameter:hover {
+  border-color: #aebbc4;
+  background: #fff;
+}
+
+.bb-card-parameter > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bb-card-input-arrow,
+.bb-card-output-arrow {
+  flex: 0 0 auto;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 850;
+}
+
+.bb-card-input-arrow {
+  color: #526b7b;
+}
+
+.bb-card-output-arrow {
+  color: #687b64;
+}
+
+.source-meshstack {
+  border-color: #b8cbd8 !important;
+  background: #eaf2f7 !important;
+}
+
+.source-static {
+  border-color: #e7c06b !important;
+  background: #fff6df !important;
+}
+
+.source-user {
+  border-color: #b6d5c2 !important;
+  background: #e9f5ed !important;
+}
+
+.source-operator {
+  border-color: #ccbfe2 !important;
+  background: #f2ecfa !important;
+}
+
+.source-bb-output {
+  border-color: #abd4d1 !important;
+  background: #e8f5f4 !important;
+}
