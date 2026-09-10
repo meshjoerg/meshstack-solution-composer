@@ -175,6 +175,7 @@ export class AppComponent implements OnInit {
     this.ensureBlockBindings(block);
     this.blueprint = { ...this.blueprint, blocks: [...this.blueprint.blocks, block] };
     this.structureChanged();
+    this.scrollToNewestBlock();
   }
 
   remove(block: BlueprintBlock): void {
@@ -366,6 +367,27 @@ export class AppComponent implements OnInit {
     this.refreshTerraform();
     this.changeDetector.detectChanges();
     void this.persist();
+  }
+
+  private scrollToNewestBlock(): void {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const cards = Array.from(document.querySelectorAll<HTMLElement>('.lane-card'));
+        const card = cards.at(-1);
+        if (!card) return;
+
+        const rect = card.getBoundingClientRect();
+        const margin = 24;
+        const outsideViewport = rect.top < margin
+          || rect.bottom > window.innerHeight - margin
+          || rect.left < margin
+          || rect.right > window.innerWidth - margin;
+
+        if (outsideViewport) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        }
+      });
+    });
   }
 
   private refreshTerraform(): void {
