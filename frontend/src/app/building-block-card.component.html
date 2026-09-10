@@ -1,0 +1,66 @@
+<article class="bb-card" [class.is-expanded]="expanded">
+  <div class="bb-card-source">{{ definition.source.label }}</div>
+
+  <div class="bb-card-head">
+    <div class="bb-card-logo">
+      <img *ngIf="definition.logoUrl; else fallbackLogo" [src]="definition.logoUrl" [alt]="definition.name">
+      <ng-template #fallbackLogo><span>{{ definition.icon }}</span></ng-template>
+    </div>
+
+    <div class="bb-card-copy">
+      <strong>{{ definition.name }}</strong>
+      <p>{{ definition.description }}</p>
+    </div>
+
+    <button class="bb-card-action" type="button" [title]="actionTitle" (click)="triggerAction($event)">{{ actionSymbol }}</button>
+  </div>
+
+  <button class="bb-card-summary" type="button" [title]="expanded ? 'Fold Building Block' : 'Expand Building Block'" (click)="toggleExpanded()">
+    <span class="bb-card-tech" [title]="definition.implementation.label">
+      <img *ngIf="implementationIconUrl(definition.implementation.type) as iconUrl; else manualIcon" [src]="iconUrl" [alt]="definition.implementation.label">
+      <ng-template #manualIcon><span class="bb-card-gear">⚙</span></ng-template>
+      <span class="bb-card-official" *ngIf="definition.officialIntegration" title="Official Integration">★</span>
+    </span>
+
+    <span class="bb-card-counts">
+      <span><b>{{ definition.inputs.length }}</b> INPUTS</span>
+      <span><b>{{ definition.outputs.length }}</b> OUTPUTS</span>
+    </span>
+
+    <span class="bb-card-disclosure" aria-hidden="true">{{ expanded ? '▾' : '▸' }}</span>
+  </button>
+
+  <div class="bb-card-parameters" *ngIf="expanded">
+    <div class="bb-card-io-row bb-card-input-row">
+      <span class="bb-card-io-label">INPUTS</span>
+      <div class="bb-card-io-values">
+        <ng-container *ngFor="let input of definition.inputs">
+          <button *ngIf="interactiveInputs; else readonlyInput"
+            class="bb-card-parameter bb-card-input"
+            type="button"
+            [ngClass]="inputSourceClass(input.name)"
+            [title]="input.name"
+            (click)="triggerInput(input,$event)">
+            <span class="bb-card-input-arrow">→</span><span>{{ input.name }}</span>
+          </button>
+          <ng-template #readonlyInput>
+            <span class="bb-card-parameter bb-card-input" [title]="input.name">
+              <span class="bb-card-input-arrow">→</span><span>{{ input.name }}</span>
+            </span>
+          </ng-template>
+        </ng-container>
+      </div>
+    </div>
+
+    <div class="bb-card-io-row bb-card-output-row">
+      <span class="bb-card-io-label bb-card-output-label">OUTPUTS</span>
+      <div class="bb-card-io-values">
+        <span class="bb-card-parameter bb-card-output" *ngFor="let output of definition.outputs" [title]="output.name">
+          <span class="bb-card-output-arrow">↓</span><span>{{ output.name }}</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <ng-content></ng-content>
+</article>
