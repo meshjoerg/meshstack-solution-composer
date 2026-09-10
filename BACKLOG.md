@@ -56,7 +56,9 @@ Current/near-term connection concepts:
 - **Working Git repository**: repository + branch + simple repository key/token
 - **Private Hub**: endpoint + API key (optional until the API contract exists)
 
-Configuration should be sticky across reloads and remain separate from Blueprint metadata and generated Terraform/OpenTofu. For the prototype, local browser persistence is sufficient; production-grade secret storage is explicitly out of scope.
+The prototype now has a sticky Config flyout for these connection values, including a quick-paste JSON mode so a complete demo configuration can be copied into the browser in one operation.
+
+Configuration remains separate from Blueprint metadata and generated Terraform/OpenTofu. For the prototype, local browser persistence in IndexedDB is sufficient; production-grade secret storage is explicitly out of scope.
 
 The current flyout is configuration only. Follow-up work is to connect these settings to real adapters for:
 
