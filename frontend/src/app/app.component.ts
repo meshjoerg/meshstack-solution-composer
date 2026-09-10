@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, HostListener, OnInit, inject } from '@ang
 import { FormsModule } from '@angular/forms';
 import { BuildingBlockCardComponent } from './building-block-card.component';
 import { CATALOG } from './catalog';
+import { DemoControlsComponent } from './demo-controls.component';
 import { Blueprint, BlueprintBlock, BuildingBlockDefinition, InputBinding, InputSourceType, ParameterDefinition } from './models';
 import { PersistenceService } from './persistence.service';
 import { generateTerraform } from './terraform';
@@ -46,7 +47,7 @@ interface OutputCandidate {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, BuildingBlockCardComponent],
+  imports: [CommonModule, FormsModule, BuildingBlockCardComponent, DemoControlsComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
@@ -84,28 +85,7 @@ export class AppComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     const restored = (await this.persistence.loadLast()) ?? this.newBlueprint();
-    const knownDefinitions = new Set(this.catalog.map(item => item.id));
-    restored.blocks = (restored.blocks ?? []).filter(block => knownDefinitions.has(block.definitionId));
-    const knownInstances = new Set(restored.blocks.map(block => block.instanceId));
-
-    restored.blocks.forEach((block, index) => {
-      block.order = index;
-      block.expanded = true;
-      this.ensureBlockBindings(block);
-      for (const [inputName, binding] of Object.entries(block.inputs)) {
-        if (binding.source === 'bb-output' && (!binding.sourceBlockId || !knownInstances.has(binding.sourceBlockId))) {
-          block.inputs[inputName] = this.defaultUnassignedBinding();
-          continue;
-        }
-
-        const formerImplicitValue = `${block.definitionId.replace(/-/g, '_')}_${inputName}`;
-        if (binding.source === 'user' && binding.value === formerImplicitValue) {
-          block.inputs[inputName] = this.defaultUnassignedBinding();
-        }
-      }
-    });
-
-    this.blueprint = { ...restored, blocks: [...restored.blocks] };
+    this.blueprint = this.prepareBlueprint(restored);
     this.rebuildDerivedStructure();
     this.refreshTerraform();
     await this.persistence.save(this.blueprint);
@@ -326,6 +306,22 @@ export class AppComponent implements OnInit {
     this.structureChanged();
   }
 
+  async loadBlueprintFromGit(loaded: Blueprint): Promise<void> {
+    if (!loaded || !Array.isArray(loaded.blocks)) {
+      window.alert('The Git blueprint is invalid.');
+      return;
+    }
+
+    this.closeQuickEditor();
+    this.batchEditorOpen = new Set<string>();
+    this.blueprint = this.prepareBlueprint(loaded);
+    this.rebuildDerivedStructure();
+    this.refreshTerraform();
+    await this.persistence.save(this.blueprint);
+    this.saved = true;
+    this.changeDetector.detectChanges();
+  }
+
   trackPlacement(_index: number, placement: CompositionPlacement): string {
     return placement.block.instanceId;
   }
@@ -350,6 +346,36 @@ export class AppComponent implements OnInit {
     this.refreshTerraform();
     await this.persist();
     this.changeDetector.detectChanges();
+  }
+
+  private prepareBlueprint(source: Blueprint): Blueprint {
+    const knownDefinitions = new Set(this.catalog.map(item => item.id));
+    const blocks = (source.blocks ?? [])
+      .filter(block => knownDefinitions.has(block.definitionId))
+      .map((block, index) => ({
+        ...block,
+        order: index,
+        expanded: true,
+        inputs: { ...(block.inputs ?? {}) }
+      }));
+    const knownInstances = new Set(blocks.map(block => block.instanceId));
+
+    for (const block of blocks) {
+      this.ensureBlockBindings(block);
+      for (const [inputName, binding] of Object.entries(block.inputs)) {
+        if (binding.source === 'bb-output' && (!binding.sourceBlockId || !knownInstances.has(binding.sourceBlockId))) {
+          block.inputs[inputName] = this.defaultUnassignedBinding();
+          continue;
+        }
+
+        const formerImplicitValue = `${block.definitionId.replace(/-/g, '_')}_${inputName}`;
+        if (binding.source === 'user' && binding.value === formerImplicitValue) {
+          block.inputs[inputName] = this.defaultUnassignedBinding();
+        }
+      }
+    }
+
+    return { ...source, blocks };
   }
 
   private structureChanged(): void {
