@@ -1,0 +1,52 @@
+<div class="demo-controls">
+  <button class="toolbar-action" type="button" [disabled]="busy" (click)="loadFromGit()">LOAD</button>
+  <button class="toolbar-action" type="button" [disabled]="busy" (click)="saveToGit()">SAVE</button>
+  <button class="config-button" type="button" (click)="open = !open">
+    <span class="config-status" [class.ready]="gitConfigured" title="Git"></span>
+    <span class="config-status" [class.ready]="meshstackConfigured" title="meshStack"></span>
+    CONFIG
+  </button>
+</div>
+
+<div class="config-backdrop" *ngIf="open" (click)="open = false"></div>
+<aside class="config-flyout" *ngIf="open" (click)="$event.stopPropagation()">
+  <div class="flyout-head">
+    <div>
+      <strong>DEMO CONNECTIONS</strong>
+      <p>Stored locally in this browser for the prototype.</p>
+    </div>
+    <button type="button" (click)="open = false">×</button>
+  </div>
+
+  <section>
+    <h4>meshStack</h4>
+    <label>Endpoint<input [(ngModel)]="config.meshstack.endpoint" placeholder="https://...meshcloud.io"></label>
+    <label>API key<input [(ngModel)]="config.meshstack.apiKey" type="password" placeholder="API key"></label>
+  </section>
+
+  <section>
+    <h4>Working Git repository</h4>
+    <label>Repository<input [(ngModel)]="config.git.repository" placeholder="owner/repository"></label>
+    <label>Branch<input [(ngModel)]="config.git.branch" placeholder="main"></label>
+    <label>Repository key / token<input [(ngModel)]="config.git.token" type="password" placeholder="GitHub token"></label>
+    <p class="hint">Blueprint path comes from the Solution Blueprint metadata.</p>
+  </section>
+
+  <section>
+    <h4>Private Hub <span>later</span></h4>
+    <label>Endpoint<input [(ngModel)]="config.privateHub.endpoint" placeholder="https://..."></label>
+    <label>API key<input [(ngModel)]="config.privateHub.apiKey" type="password" placeholder="API key"></label>
+  </section>
+
+  <button class="paste-toggle" type="button" (click)="pasteOpen = !pasteOpen">{{ pasteOpen ? 'Hide' : 'Paste' }} JSON config</button>
+  <div class="paste-box" *ngIf="pasteOpen">
+    <textarea [(ngModel)]="pasteJson" rows="8" placeholder='{"git":{"repository":"owner/repo","branch":"main","token":"..."}}'></textarea>
+    <button type="button" (click)="applyJson()">APPLY JSON</button>
+  </div>
+
+  <div class="flyout-message" *ngIf="message">{{ message }}</div>
+  <div class="flyout-actions">
+    <button type="button" class="secondary-action" (click)="open = false">CANCEL</button>
+    <button type="button" class="primary-action" (click)="saveConfig()">SAVE CONFIG</button>
+  </div>
+</aside>
