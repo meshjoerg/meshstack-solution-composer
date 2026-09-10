@@ -56,7 +56,7 @@ Current/near-term connection concepts:
 - **Working Git repository**: repository + branch + simple repository key/token
 - **Private Hub**: endpoint + API key (optional until the API contract exists)
 
-The prototype now has a sticky Config flyout for these connection values, including a quick-paste JSON mode so a complete demo configuration can be copied into the browser in one operation.
+The prototype now has a sticky Config flyout for these connection values, including a quick-paste JSON mode so a complete demo configuration can be copied into the browser in one operation. The launcher also gives an immediate configured/not-configured indication for meshStack and Git.
 
 Configuration remains separate from Blueprint metadata and generated Terraform/OpenTofu. For the prototype, local browser persistence in IndexedDB is sufficient; production-grade secret storage is explicitly out of scope.
 
