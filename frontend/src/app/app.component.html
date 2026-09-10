@@ -1,3 +1,232 @@
+<style>
+  /* Unified Building Block anatomy: source cap → identity → technical summary → parameters. */
+  .catalog-item {
+    display: block !important;
+    position: relative;
+    overflow: hidden;
+    padding: 0 !important;
+  }
+
+  .catalog-source-cap {
+    position: static !important;
+    margin: 0 !important;
+    padding: 6px 12px 5px !important;
+    border-top: 0 !important;
+    border-bottom: 1px solid #d7dde2 !important;
+    border-radius: 8px 8px 0 0 !important;
+    background: #eef1f3 !important;
+    color: #74808a !important;
+    font-size: 9px !important;
+    line-height: 1.2 !important;
+  }
+
+  .catalog-head {
+    display: grid;
+    grid-template-columns: 38px minmax(0,1fr) 34px;
+    gap: 11px;
+    align-items: start;
+    padding: 10px 12px 8px;
+  }
+
+  .catalog-copy > strong {
+    display: block;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+
+  .catalog-copy > p {
+    margin-bottom: 0;
+  }
+
+  .opposite-action {
+    width: 30px !important;
+    height: 30px !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    border: 1px solid #c5ced5 !important;
+    border-radius: 6px !important;
+    background: #f7f9fa !important;
+    color: #53616c !important;
+    font-size: 18px !important;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .opposite-action:hover {
+    background: #eef2f4 !important;
+    border-color: #adb9c1 !important;
+  }
+
+  .bb-actions {
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .catalog-details {
+    margin: 0 12px 10px !important;
+    padding: 0 !important;
+    border-top: 1px solid #d7dde2 !important;
+  }
+
+  .catalog-details > summary,
+  .catalog-details > summary.catalog-details-summary {
+    display: block !important;
+    min-height: 0 !important;
+    list-style: none !important;
+    -webkit-appearance: none !important;
+  }
+
+  .catalog-details > summary::-webkit-details-marker { display:none !important; }
+  .catalog-details > summary::marker { content:'' !important; font-size:0 !important; }
+
+  .bb-tech-summary {
+    width: 100%;
+    min-height: 50px;
+    display: grid !important;
+    grid-template-columns: 18px 32px minmax(0,1fr);
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    color: #65727c;
+  }
+
+  button.bb-tech-summary {
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .bb-tech-summary:hover { background: rgba(96,112,123,.035); }
+
+  .bb-tech-disclosure {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    color: #657680;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .bb-tech-icon {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .bb-tech-icon img {
+    width: 25px;
+    height: 25px;
+    object-fit: contain;
+  }
+
+  .bb-tech-icon .summary-gear {
+    font-size: 22px;
+  }
+
+  .bb-tech-icon .official-mini {
+    position: absolute;
+    right: -5px;
+    bottom: -4px;
+  }
+
+  .bb-tech-counts {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: .055em;
+    color: #6c7882;
+  }
+
+  .bb-tech-counts span {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  .bb-tech-counts b {
+    min-width: 16px;
+    color: #44545f;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-align: right;
+  }
+
+  .catalog-expanded-io {
+    padding: 5px 0 2px;
+    max-height: 350px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .catalog-expanded-io .io-grid-row {
+    grid-template-columns: 42px minmax(0,1fr);
+  }
+
+  .catalog-expanded-io .input-flow-chip,
+  .catalog-expanded-io .output-flow-chip {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .catalog-expanded-io .input-flow-chip > span:last-child,
+  .catalog-expanded-io .output-flow-chip > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .composer-tech-summary {
+    margin: 0 10px;
+    border-top: 1px solid #d7dde2 !important;
+    border-bottom: 1px solid #d7dde2 !important;
+    padding-left: 1px !important;
+    padding-right: 1px !important;
+  }
+
+  .bb-anatomy.unified-io {
+    display: block !important;
+    padding: 9px 10px 10px;
+  }
+
+  .bb-anatomy.unified-io .io-stack {
+    max-height: 360px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+    scrollbar-gutter: stable;
+  }
+
+  .bb-anatomy.unified-io .io-grid-row {
+    grid-template-columns: 72px minmax(0,1fr);
+  }
+
+  .bb-anatomy.unified-io .input-flow-chip,
+  .bb-anatomy.unified-io .output-flow-chip {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .bb-anatomy.unified-io .input-flow-chip > span:last-child,
+  .bb-anatomy.unified-io .output-flow-chip > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
+
 <header class="topbar">
   <div><strong>meshStack</strong> <span>Solution Composer</span></div>
   <div class="status">{{ saved ? 'Saved locally' : 'Saving…' }}</div>
@@ -5,18 +234,65 @@
 
 <main class="workspace">
   <aside class="catalog panel">
-    <div class="panel-title">BUILDING BLOCKS <span>meshStack Hub</span></div>
+    <div class="panel-title">BUILDING BLOCKS <span>available capabilities</span></div>
     <input class="search" [(ngModel)]="query" placeholder="Search capabilities…">
+
     <div class="catalog-list">
-      <article class="catalog-item" *ngFor="let item of filteredCatalog">
-        <div>
-          <strong>{{ item.name }}</strong>
-          <p>{{ item.description }}</p>
-          <small>{{ item.inputs.length }} inputs · {{ item.outputs.length }} outputs</small>
-        </div>
-        <button (click)="add(item)">+</button>
-      </article>
+      <details class="platform-group" *ngFor="let group of catalogGroups; trackBy: trackCatalogGroup" [open]="!!query || catalogGroups.length <= 4">
+        <summary><span>{{ group.platform }}</span><small>{{ group.items.length }}</small></summary>
+
+        <article class="catalog-item" *ngFor="let item of group.items; trackBy: trackDefinition">
+          <div class="source-strip catalog-source-cap">{{ item.source.label }}</div>
+
+          <div class="catalog-head">
+            <div class="catalog-icon">
+              <img *ngIf="item.logoUrl; else catalogFallbackIcon" [src]="item.logoUrl" [alt]="item.name">
+              <ng-template #catalogFallbackIcon><span>{{ item.icon }}</span></ng-template>
+            </div>
+
+            <div class="catalog-copy">
+              <strong>{{ item.name }}</strong>
+              <p>{{ item.description }}</p>
+            </div>
+
+            <button class="add opposite-action" type="button" title="Add Building Block" (click)="add(item)">+</button>
+          </div>
+
+          <details class="catalog-details" #catalogDetails>
+            <summary class="bb-tech-summary catalog-details-summary">
+              <span class="bb-tech-disclosure" aria-hidden="true">{{ catalogDetails.open ? '▾' : '▸' }}</span>
+              <span class="bb-tech-icon" [title]="item.implementation.label">
+                <img *ngIf="implementationIconUrl(item.implementation.type) as iconUrl; else catalogSummaryManual" [src]="iconUrl" [alt]="item.implementation.label">
+                <ng-template #catalogSummaryManual><span class="summary-gear">⚙</span></ng-template>
+                <span class="official-mini" *ngIf="item.officialIntegration" title="Official Integration">★</span>
+              </span>
+              <span class="bb-tech-counts">
+                <span><b>{{ item.inputs.length }}</b> INPUTS</span>
+                <span><b>{{ item.outputs.length }}</b> OUTPUTS</span>
+              </span>
+            </summary>
+
+            <div class="catalog-expanded-io">
+              <div class="catalog-io">
+                <div class="io-grid-row">
+                  <span class="io-label io-label-input">IN</span>
+                  <div class="io-values">
+                    <span class="mini-name input-flow-chip" *ngFor="let input of item.inputs; trackBy: trackParameter" [title]="input.name"><span class="input-chip-arrow">→</span><span>{{ input.name }}</span></span>
+                  </div>
+                </div>
+                <div class="io-grid-row">
+                  <span class="io-label io-label-output">OUT</span>
+                  <div class="io-values">
+                    <span class="mini-name output-flow-chip" *ngFor="let output of item.outputs; trackBy: trackParameter" [title]="output.name"><span class="output-chip-arrow">↓</span><span>{{ output.name }}</span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+        </article>
+      </details>
     </div>
+
     <button class="secondary wide" disabled>+ New Building Block · later</button>
   </aside>
 
@@ -32,89 +308,205 @@
       </div>
     </section>
 
-    <section class="contexts">
-      <article class="context user">
-        <h3>USER CONTEXT <span>↓</span></h3>
-        <p *ngIf="!userContext.length" class="empty">No user inputs yet</p>
-        <code *ngFor="let item of userContext">{{ item }}</code>
-      </article>
-      <article class="context static">
-        <h3>STATIC CONTEXT <span>↓</span></h3>
-        <p *ngIf="!staticContext.length" class="empty">No fixed values yet</p>
-        <code *ngFor="let item of staticContext">{{ item }}</code>
-      </article>
-      <article class="context meshstack">
-        <h3>meshSTACK CONTEXT <span>↓</span></h3>
-        <p *ngIf="!meshStackContext.length" class="empty">No context bindings yet</p>
-        <code *ngFor="let item of meshStackContext">{{ item }}</code>
-      </article>
+    <section class="composition panel">
+      <div class="panel-title">COMPOSITION <span>dependency chains stay on horizontal lanes</span></div>
+      <div class="empty-composition" *ngIf="!orderedBlocks.length">Add Building Blocks from the catalog to start composing a solution.</div>
+
+      <div class="dag-scroll" *ngIf="orderedBlocks.length">
+        <div class="lane-grid" [style.--column-count]="maxCompositionColumn + 1">
+          <article class="bb compact lane-card" *ngFor="let placement of compositionPlacements; trackBy: trackPlacement" [style.grid-column]="placement.column + 1" [style.grid-row]="placement.row + 1">
+            <div class="lane-arrow" *ngIf="placement.column > 0">→</div>
+            <div class="source-strip card-source">{{ definition(placement.block).source.label }}</div>
+
+            <div class="bb-head compact-head">
+              <div class="bb-icon">
+                <img *ngIf="definition(placement.block).logoUrl; else composerFallbackIcon" [src]="definition(placement.block).logoUrl" [alt]="definition(placement.block).name">
+                <ng-template #composerFallbackIcon><span>{{ definition(placement.block).icon }}</span></ng-template>
+              </div>
+              <div class="bb-title">
+                <strong>{{ definition(placement.block).name }}</strong>
+                <p>{{ definition(placement.block).description }}</p>
+              </div>
+              <div class="bb-actions">
+                <button class="remove-button opposite-action" type="button" title="Remove Building Block" (click)="remove(placement.block)">×</button>
+              </div>
+            </div>
+
+            <button class="bb-tech-summary composer-tech-summary" type="button" title="{{ placement.block.expanded ? 'Fold Building Block' : 'Expand Building Block' }}" (click)="toggleExpanded(placement.block)">
+              <span class="bb-tech-disclosure" aria-hidden="true">{{ placement.block.expanded ? '▾' : '▸' }}</span>
+              <span class="bb-tech-icon" [title]="definition(placement.block).implementation.label">
+                <img *ngIf="implementationIconUrl(definition(placement.block).implementation.type) as iconUrl; else composerManualIcon" [src]="iconUrl" [alt]="definition(placement.block).implementation.label">
+                <ng-template #composerManualIcon><span class="summary-gear">⚙</span></ng-template>
+                <span class="official-mini" *ngIf="definition(placement.block).officialIntegration" title="Official Integration">★</span>
+              </span>
+              <span class="bb-tech-counts">
+                <span><b>{{ definition(placement.block).inputs.length }}</b> INPUTS</span>
+                <span><b>{{ definition(placement.block).outputs.length }}</b> OUTPUTS</span>
+              </span>
+            </button>
+
+            <ng-container *ngIf="placement.block.expanded">
+              <div class="bb-anatomy unified-io">
+                <div class="io-stack">
+                  <div class="io-grid-row">
+                    <span class="io-label io-label-input">INPUTS</span>
+                    <div class="io-values">
+                      <button class="parameter-chip parameter-chip-button input-flow-chip" type="button" *ngFor="let input of definition(placement.block).inputs; trackBy: trackParameter"
+                        [title]="input.name"
+                        [class.source-meshstack]="placement.block.inputs[input.name]?.source === 'meshstack-context'"
+                        [class.source-static]="placement.block.inputs[input.name]?.source === 'static'"
+                        [class.source-user]="placement.block.inputs[input.name]?.source === 'user'"
+                        [class.source-operator]="placement.block.inputs[input.name]?.source === 'platform-operator'"
+                        [class.source-bb-output]="placement.block.inputs[input.name]?.source === 'bb-output'"
+                        (click)="openQuickEditor(placement.block,input.name,$event)"><span class="input-chip-arrow">→</span><span>{{ input.name }}</span></button>
+                    </div>
+                  </div>
+
+                  <div class="io-grid-row output-row-compact">
+                    <span class="io-label io-label-output">OUTPUTS</span>
+                    <div class="io-values">
+                      <span class="parameter-chip output-flow-chip" *ngFor="let output of definition(placement.block).outputs; trackBy: trackParameter" [title]="output.name"><span class="output-chip-arrow">↓</span><span>{{ output.name }}</span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dependency-hint" *ngIf="placement.primaryParent">← {{ placement.primaryParent }}<span *ngIf="placement.secondaryParents.length"> · also {{ placement.secondaryParents.join(', ') }}</span></div>
+
+              <div class="batch-editor-shell">
+                <button class="batch-editor-toggle" type="button" (click)="toggleBatchEditor(placement.block)">
+                  <span>EDIT INPUT PARAMETERS</span><span class="toggle-chevron"><span class="chevron-icon" [class.open]="isBatchEditorOpen(placement.block)"></span></span>
+                </button>
+
+                <div class="bb-details compact-details" *ngIf="isBatchEditorOpen(placement.block)">
+                  <div class="parameter" *ngFor="let input of definition(placement.block).inputs; trackBy: trackParameter">
+                    <div class="parameter-info">
+                      <div class="parameter-name"><span class="parameter-name-core"><span class="inline-input-arrow">→</span><span>{{ input.name }}</span></span> <small>{{ input.type }}</small></div>
+                      <p>{{ input.description }}</p>
+                    </div>
+                    <div class="binding-controls">
+                      <select [ngModel]="placement.block.inputs[input.name]?.source || 'unassigned'" (ngModelChange)="setSource(placement.block,input.name,$event)">
+                        <option value="unassigned">Not assigned</option>
+                        <option value="meshstack-context">meshStack context</option>
+                        <option value="static">Static value</option>
+                        <option value="user">User input</option>
+                        <option value="platform-operator">Platform operator input</option>
+                        <option value="bb-output">Building Block output</option>
+                      </select>
+                      <div class="runtime-binding-hint source-user" *ngIf="placement.block.inputs[input.name]?.source === 'user'">Entered by the solution user at runtime.</div>
+                      <div class="runtime-binding-hint source-operator" *ngIf="placement.block.inputs[input.name]?.source === 'platform-operator'">Supplied by the platform operator at runtime.</div>
+                      <input *ngIf="placement.block.inputs[input.name]?.source === 'static'" [ngModel]="placement.block.inputs[input.name]?.value || ''" (ngModelChange)="setBindingValue(placement.block,input.name,$event)" placeholder="Static value">
+                      <select *ngIf="placement.block.inputs[input.name]?.source === 'meshstack-context'" [ngModel]="placement.block.inputs[input.name]?.contextKey || 'project_identifier'" (ngModelChange)="setContextKey(placement.block,input.name,$event)">
+                        <option value="workspace_identifier">Workspace Identifier</option>
+                        <option value="project_identifier">Project Identifier</option>
+                        <option value="platform_identifier">Full Platform Identifier</option>
+                        <option value="tenant_id">Platform Tenant ID</option>
+                        <option value="meshstack_tenant_uuid">meshStack Tenant UUID</option>
+                        <option value="user_permissions">User Permissions</option>
+                        <option value="author">Author</option>
+                        <option value="tags">Tags</option>
+                      </select>
+                      <select *ngIf="placement.block.inputs[input.name]?.source === 'bb-output'" [ngModel]="outputReferenceValue(placement.block,input.name)" (ngModelChange)="setOutputReference(placement.block,input.name,$event)">
+                        <option value="|" disabled>Select Building Block output…</option>
+                        <option *ngFor="let candidate of outputCandidates(placement.block); trackBy: trackOutputCandidate" [value]="candidate.block.instanceId + '|' + candidate.output">{{ candidate.label }} → {{ candidate.output }}</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ng-container>
+          </article>
+        </div>
+      </div>
     </section>
 
-    <section class="composition panel">
-      <div class="panel-title">COMPOSITION <span>parameters flow from context through capabilities</span></div>
-      <div class="empty-composition" *ngIf="!blueprint.blocks.length">
-        Add Building Blocks from the catalog to start composing a solution.
-      </div>
-
-      <article class="bb" *ngFor="let block of blueprint.blocks | keyvalue : null; let i = index">
+    <section class="contexts">
+      <article class="context meshstack">
+        <h3>meshSTACK CONTEXT <span>↓</span></h3>
+        <div class="context-defaults"><span class="source-meshstack" *ngFor="let item of meshStackDefaults">{{ item }}</span></div>
       </article>
-      <article class="bb" *ngFor="let block of blueprint.blocks">
-        <div class="bb-head">
-          <div>
-            <button class="chevron" (click)="block.expanded = !block.expanded; changed()">{{ block.expanded ? '▾' : '▸' }}</button>
-            <strong>{{ definition(block).name }}</strong>
-            <small>{{ definition(block).source }}</small>
-          </div>
-          <div class="bb-actions">
-            <button (click)="move(block,-1)">↑</button><button (click)="move(block,1)">↓</button><button (click)="remove(block)">×</button>
-          </div>
-        </div>
 
-        <div class="io-summary">
-          <span></span><span class="inputs-count">↑ {{ definition(block).inputs.length }} INPUTS</span>
-        </div>
-
-        <div class="bb-body" *ngIf="block.expanded">
-          <div class="spacer"></div>
-          <div class="io-list inputs">
-            <div class="parameter" *ngFor="let input of definition(block).inputs">
-              <div class="parameter-name">{{ input.name }} <small>{{ input.type }}</small></div>
-              <select [ngModel]="block.inputs[input.name]?.source" (ngModelChange)="setSource(block,input.name,$event)">
-                <option value="user">User input</option>
-                <option value="static">Static value</option>
-                <option value="meshstack-context">meshStack context</option>
-                <option value="bb-output">Building Block output</option>
-              </select>
-              <input *ngIf="block.inputs[input.name]?.source === 'user'" [(ngModel)]="block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="parameter name">
-              <input *ngIf="block.inputs[input.name]?.source === 'static'" [(ngModel)]="block.inputs[input.name].value" (ngModelChange)="changed()" placeholder="value">
-              <select *ngIf="block.inputs[input.name]?.source === 'meshstack-context'" [(ngModel)]="block.inputs[input.name].contextKey" (ngModelChange)="changed()">
-                <option value="project_identifier">Project Identifier</option>
-                <option value="workspace_identifier">Workspace Identifier</option>
-                <option value="platform_identifier">Platform Identifier</option>
-                <option value="tenant_id">Tenant ID</option>
-                <option value="tags">Tags</option>
-                <option value="user_permissions">User Permissions</option>
-              </select>
-              <select *ngIf="block.inputs[input.name]?.source === 'bb-output'" [ngModel]="(block.inputs[input.name].sourceBlockId || '') + '|' + (block.inputs[input.name].sourceOutput || '')" (ngModelChange)="setOutputReference(block,input.name,$event)">
-                <option *ngFor="let candidate of outputCandidates(block)" [value]="candidate.block.instanceId + '|' + candidate.output">{{ candidate.label }} → {{ candidate.output }}</option>
-              </select>
+      <article class="context static">
+        <h3>STATIC CONTEXT <span>↓</span></h3>
+        <div class="context-bb-groups" *ngIf="staticGroups.length; else noStatic">
+          <div class="context-bb-row" *ngFor="let group of staticGroups">
+            <span class="context-bb-name">{{ group.blockName }}</span>
+            <div class="context-defaults context-bb-params">
+              <span class="source-static" *ngFor="let item of group.items">{{ item }}</span>
             </div>
           </div>
         </div>
+        <ng-template #noStatic><p class="empty">No parameters assigned to static context</p></ng-template>
+      </article>
 
-        <div class="outputs" *ngIf="block.expanded">
-          <div></div>
-          <div class="io-list">
-            <div class="output" *ngFor="let output of definition(block).outputs"><span>↓</span> {{ output.name }} <small>{{ output.type }}</small></div>
+      <article class="context user">
+        <h3>USER / OPERATOR CONTEXT <span>↓</span></h3>
+        <div class="context-bb-groups" *ngIf="userOperatorGroups.length; else noUserOperator">
+          <div class="context-bb-row" *ngFor="let group of userOperatorGroups">
+            <span class="context-bb-name">{{ group.blockName }}</span>
+            <div class="context-defaults context-bb-params">
+              <span *ngFor="let item of group.items" [class.source-user]="!item.operator" [class.source-operator]="item.operator">{{ item.name }}</span>
+            </div>
           </div>
         </div>
-        <div class="io-summary bottom"><span></span><span>↓ {{ definition(block).outputs.length }} OUTPUTS</span></div>
+        <ng-template #noUserOperator><p class="empty">No parameters assigned to user or operator context</p></ng-template>
       </article>
     </section>
 
     <section class="code panel">
-      <div class="panel-title">GENERATED TERRAFORM / OPENTOFU <span>live from blueprint state</span></div>
-      <pre><code>{{ terraform }}</code></pre>
+      <div class="panel-title">RESULTING SOLUTION TERRAFORM / OPENTOFU CODE <span>live from blueprint state</span></div>
+      <pre><code>{{ terraformCode }}</code></pre>
     </section>
+  </section>
+
+  <section class="quick-parameter-editor" *ngIf="quickEditorBlock && quickEditorInput" [style.left.px]="quickEditorLeft" [style.top.px]="quickEditorTop" (click)="$event.stopPropagation()">
+    <div class="quick-editor-head">
+      <div>
+        <span class="eyebrow">INPUT PARAMETER</span>
+        <strong><span class="parameter-name-core"><span class="inline-input-arrow">→</span><span>{{ quickEditorInput.name }}</span></span> <small>{{ quickEditorInput.type }}</small></strong>
+        <p>{{ quickEditorInput.description }}</p>
+      </div>
+      <button type="button" (click)="closeQuickEditor()">×</button>
+    </div>
+
+    <div class="quick-editor-controls">
+      <label>Source
+        <select [ngModel]="quickSource()" (ngModelChange)="setQuickSource($event)">
+          <option value="unassigned">Not assigned</option>
+          <option value="meshstack-context">meshStack context</option>
+          <option value="static">Static value</option>
+          <option value="user">User input</option>
+          <option value="platform-operator">Platform operator input</option>
+          <option value="bb-output">Building Block output</option>
+        </select>
+      </label>
+
+      <div class="runtime-binding-hint source-user" *ngIf="quickSource() === 'user'">Entered by the solution user at runtime.</div>
+      <div class="runtime-binding-hint source-operator" *ngIf="quickSource() === 'platform-operator'">Supplied by the platform operator at runtime.</div>
+
+      <label *ngIf="quickSource() === 'static'">Static value
+        <input [ngModel]="quickEditorBlock.inputs[quickEditorInput.name]?.value || ''" (ngModelChange)="setQuickStaticValue($event)">
+      </label>
+
+      <label *ngIf="quickSource() === 'meshstack-context'">meshStack context
+        <select [ngModel]="quickEditorBlock.inputs[quickEditorInput.name]?.contextKey || 'project_identifier'" (ngModelChange)="setQuickContextKey($event)">
+          <option value="workspace_identifier">Workspace Identifier</option>
+          <option value="project_identifier">Project Identifier</option>
+          <option value="platform_identifier">Full Platform Identifier</option>
+          <option value="tenant_id">Platform Tenant ID</option>
+          <option value="meshstack_tenant_uuid">meshStack Tenant UUID</option>
+          <option value="user_permissions">User Permissions</option>
+          <option value="author">Author</option>
+          <option value="tags">Tags</option>
+        </select>
+      </label>
+
+      <label *ngIf="quickSource() === 'bb-output'">Building Block output
+        <select [ngModel]="outputReferenceValue(quickEditorBlock,quickEditorInput.name)" (ngModelChange)="setQuickOutputReference($event)">
+          <option value="|" disabled>Select Building Block output…</option>
+          <option *ngFor="let candidate of outputCandidates(quickEditorBlock); trackBy: trackOutputCandidate" [value]="candidate.block.instanceId + '|' + candidate.output">{{ candidate.label }} → {{ candidate.output }}</option>
+        </select>
+      </label>
+    </div>
   </section>
 </main>

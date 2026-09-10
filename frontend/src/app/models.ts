@@ -1,4 +1,6 @@
-export type InputSourceType = 'user' | 'static' | 'meshstack-context' | 'bb-output';
+export type InputSourceType = 'unassigned' | 'user' | 'platform-operator' | 'static' | 'meshstack-context' | 'bb-output';
+export type BuildingBlockSourceType = 'hub' | 'marketplace' | 'custom';
+export type ImplementationType = 'opentofu' | 'github-actions' | 'gitlab-cicd' | 'manual' | 'azure-devops';
 
 export interface ParameterDefinition {
   name: string;
@@ -6,11 +8,29 @@ export interface ParameterDefinition {
   description?: string;
 }
 
+export interface BuildingBlockSource {
+  type: BuildingBlockSourceType;
+  label: string;
+  icon: string;
+}
+
+export interface BuildingBlockImplementation {
+  type: ImplementationType;
+  label: string;
+  icon: string;
+}
+
 export interface BuildingBlockDefinition {
   id: string;
   name: string;
   description: string;
-  source: string;
+  icon: string;
+  logoUrl?: string;
+  platform?: string;
+  codeUrl?: string;
+  officialIntegration?: boolean;
+  source: BuildingBlockSource;
+  implementation: BuildingBlockImplementation;
   inputs: ParameterDefinition[];
   outputs: ParameterDefinition[];
 }

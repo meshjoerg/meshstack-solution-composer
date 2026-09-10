@@ -2,9 +2,12 @@ import { Blueprint, BuildingBlockDefinition, InputBinding } from './models';
 
 function terraformValue(binding: InputBinding, definitions: Map<string, BuildingBlockDefinition>, instanceToDefinition: Map<string, string>): string {
   switch (binding.source) {
+    case 'unassigned':
+      return '<unassigned>';
     case 'static':
       return JSON.stringify(binding.value ?? '');
     case 'user':
+    case 'platform-operator':
       return `var.${binding.value}`;
     case 'meshstack-context':
       return `local.meshstack_context.${binding.contextKey}`;
@@ -28,7 +31,9 @@ export function generateTerraform(blueprint: Blueprint, catalog: BuildingBlockDe
     if (!definition) continue;
     for (const input of definition.inputs) {
       const binding = block.inputs[input.name];
-      if (binding?.source === 'user' && binding.value) variables.set(binding.value, input.type);
+      if ((binding?.source === 'user' || binding?.source === 'platform-operator') && binding.value) {
+        variables.set(binding.value, input.type);
+      }
     }
   }
 
@@ -40,7 +45,7 @@ export function generateTerraform(blueprint: Blueprint, catalog: BuildingBlockDe
     const resourceName = definition.id.replace(/-/g, '_');
     const inputLines = definition.inputs.map(input => {
       const binding = block.inputs[input.name];
-      if (!binding) return `      # ${input.name} = <unbound>`;
+      if (!binding || binding.source === 'unassigned') return `      # ${input.name} = <unassigned>`;
       return `      ${input.name} = ${terraformValue(binding, definitions, instanceToDefinition)}`;
     }).join('\n');
 
