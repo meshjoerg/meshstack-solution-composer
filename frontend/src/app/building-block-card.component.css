@@ -1,6 +1,26 @@
 :host {
   display: block;
   min-width: 0;
+  position: relative;
+}
+
+:host(.catalog-card) {
+  margin-bottom: 10px;
+}
+
+:host(.lane-card) {
+  align-self: start;
+}
+
+.bb-card-lane-arrow {
+  position: absolute;
+  left: -29px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8a959e;
+  font-size: 22px;
+  font-weight: 500;
+  pointer-events: none;
 }
 
 .bb-card {
